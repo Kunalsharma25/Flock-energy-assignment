@@ -1,0 +1,22 @@
+# Data directories
+data/
+
+# Python virtual environment
+.venv/
+venv/
+ENV/
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
