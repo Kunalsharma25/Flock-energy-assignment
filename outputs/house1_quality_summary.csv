@@ -1,0 +1,22 @@
+metric,value,notes
+Part 1 Raw Rows,4377877,From RAW_House1_Part1.csv
+Part 2 Raw Rows,4140886,From RAW_House1_Part2.csv
+Total Combined Raw Rows,8518763,Concatenated raw dataset
+Start Timestamp (UTC),2013-10-09 14:06:17+00:00,Nominal start of recording
+End Timestamp (UTC),2015-07-10 11:56:32+00:00,Nominal end of recording
+Out of Order Timestamps (Part 1),1,Single non-monotonic step
+Out of Order Timestamps (Part 2),0,Monotonic throughout
+Out of Order Timestamps (Concatenated),2,Before global Unix sort
+Duplicate Rows Removed,1211048,Averaged across channels
+Duplicate Timestamps with Differing Values,276310,Due to Part 1 / Part 2 overlap
+Sampling Interval Median (s),7.0,Nominal 7-8s polling cycle
+Sampling Interval 95th Percentile (s),13.0,Normal jitter range
+Sampling Interval 99th Percentile (s),15.0,Normal jitter range
+Sampling Intervals > 60 s,4040,Data logging dropouts
+Sampling Intervals > 300 s (5 min),390,Short outages and major gaps
+Longest Outage Duration (hours),998.45,Feb 2014 network outage (41.6 days)
+Part 1 Sensor Unavailable Rows (All Zero),0,Sensor unavailable coded as 0 in Part 1
+Negative Power Readings,0,Impossible physical values (< 0 W)
+Appliance Spikes > 4000 W,3949,Set to NaN in cleaning pipeline
+Aggregate Extreme Readings > 23000 W,77,Above ~100A supply limit; set to NaN
+Rows Appliance > Aggregate,50228,Sub-meter sum mismatch / sensor asynchrony
