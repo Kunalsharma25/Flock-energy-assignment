@@ -471,17 +471,17 @@ The raw House 1 dataset consists of two chronological segments: `RAW_House1_Part
 | Data Quality Check | Observed Value | Description & Engineering Action |
 |---|---|---|
 | **Timestamp Formatting** | 0 unparseable rows | Timestamps in `Time` and `Unix` parse cleanly with 100% valid records. |
-| **Time vs Unix Timezone** | 0.0 h diff (Clean) / BST offset (Raw Part 1) | In the clean data, `Time - Unix_UTC == 0.0 h`. In raw Part 1, timestamps initially recorded UK local clock (BST = UTC+1). Official clean data adjusted timestamps by 1 h to true UTC. |
+| **Time vs Unix Timezone** | 0.0 h diff (Clean) / 60 min offset (Raw Part 1 BST) | In `CLEAN_House1.csv`, `Time - Unix_UTC == 0.0 h`. In raw Part 1, monthly cross-correlation with cleaned data reveals a 60-minute offset during British Summer Time (Oct 2013, Apr–Sep 2014), where the raw logger recorded UTC+1. Official cleaned data shifted these periods by -60 min to true UTC. |
 | **Ordering & Monotonicity** | {summary_metrics['concat_out_of_order']} out-of-order steps | Sorting by Unix timestamp restores strict chronological ordering. |
-| **Timestamp Duplicates** | {summary_metrics['duplicate_timestamp_count']:,} duplicate rows | Duplicates occur mainly in the Part 1 / Part 2 overlap window (June 27 to October 1, 2014) and during the autumn DST transition. {summary_metrics['duplicate_timestamps_with_different_values']:,} duplicate timestamps carry differing sensor values. Averaging duplicated timestamps preserves the energy state without arbitrary sample drop. |
-| **Sampling Dropouts** | {summary_metrics['deltas_above_60s']:,} intervals > 60 s | High-frequency polling dropouts. Intervals <= 5 minutes are linearly interpolated after 1-min resampling. |
-| **Extended Outages** | {summary_metrics['deltas_above_300s_5min']:,} gaps > 5 min | Major gaps are tagged in the `outage` boolean mask and left unpopulated (NaN). |
-| **Maximum Outage** | {summary_metrics['delta_max_hours']} hours (41.6 days) | February 2014 REFIT nationwide data acquisition system failure (2014-01-24 to 2014-03-06). |
-| **Part 1 All-Zero Rows** | {summary_metrics['part1_all_zero_rows']} rows | Part 1 used 0 for sensor disconnection; Part 2 used NaN. |
-| **Negative Power Values** | {summary_metrics['negatives_count']} rows | Physically impossible active loads (< 0 W) were audited; 0 found in House 1. |
-| **Appliance Spikes (> 4000 W)** | {summary_metrics['appliance_spikes_gt_4000w']:,} spikes | Sensor transmission corruptions above the official REFIT physical ceiling (4 kW). Set to NaN to avoid corrupting energy sums. |
-| **Aggregate Extremes (> 23 kW)** | {summary_metrics['aggregate_gt_23000w']} rows | Readings exceeding the domestic 100 A x 230 V UK fuse rating. Set to NaN. |
-| **Sub-meter Sum Mismatch** | {summary_metrics['rows_where_appliance_exceeds_aggregate']:,} rows | Instances where an individual appliance channel exceeds aggregate power due to sensor asynchrony (sensors polled sequentially over 6-8 s). |
+| **Timestamp Duplicates** | {summary_metrics['duplicate_timestamp_count']:,} duplicate rows | 2,167,063 total rows fall into duplicated timestamp groups. 764,126 unique timestamps have duplicates within a single file, and 191,889 unique timestamps span both files during the overlap period (June 27 to October 1, 2014). {summary_metrics['duplicate_timestamps_with_different_values']:,} duplicate timestamps carry differing sensor values. Averaging duplicated timestamps provides a single value per second without discarding records. |
+| **Sampling Dropouts** | {summary_metrics['deltas_above_60s']:,} intervals > 60 s | Consecutive timestamp deltas greater than 60 seconds. Intervals <= 5 minutes are linearly interpolated after 1-min resampling. |
+| **Extended Outages** | {summary_metrics['deltas_above_300s_5min']:,} intervals > 300 s (raw) / 375 gaps > 5 min (1-min grid) | Consecutive missing spans in the 1-minute grid exceeding 5 minutes. These are tagged in the `outage` boolean mask and left unpopulated (NaN). |
+| **Maximum Outage** | {summary_metrics['delta_max_hours']} hours (41.6 days) | Extended recording gap from `2014-01-24 01:57:00` to `2014-03-06 16:22:00 UTC` (59,906 consecutive missing 1-minute intervals). |
+| **Part 1 All-Zero Rows** | {summary_metrics['part1_all_zero_rows']} rows | Rows where all 10 channels simultaneously equal 0.0 W. |
+| **Negative Power Values** | {summary_metrics['negatives_count']} rows | Active power readings below 0 W. |
+| **Appliance Spikes (> 4000 W)** | {summary_metrics['appliance_spikes_gt_4000w']:,} spikes | Readings exceeding the `APPLIANCE_SPIKE_W = 4000 W` threshold. Set to NaN in the cleaning pipeline. |
+| **Aggregate Extremes (> 23 kW)** | {summary_metrics['aggregate_gt_23000w']} rows | Whole-house aggregate readings exceeding the `AGG_EXTREME_W = 23000 W` threshold. Set to NaN. |
+| **Sub-meter Exceeding Aggregate** | {summary_metrics['rows_where_appliance_exceeds_aggregate']:,} rows | Instances where an individual sub-metered appliance channel records a value greater than the concurrent whole-house aggregate reading. |
 
 #### Top 5 Largest Outages in House 1
 | Outage Start (UTC) | Outage End (UTC) | Duration |
@@ -497,13 +497,13 @@ The cleaning pipeline (`src/cleaning.py`) processes raw House 1 data according t
 1. **Monotonic Sorting:** Concatenate Part 1 and Part 2 and sort strictly by Unix timestamp.
 2. **Deterministic Deduplication:** Group identical Unix timestamps and compute the mean across all channels. *Reason:* Simultaneous sensor reads describe the state at the exact same second; averaging avoids arbitrary record deletion while handling Part 1/Part 2 overlap.
 3. **Physical Bounds & Anomaly Masking:**
-   - Any appliance channel reading exceeding `APPLIANCE_SPIKE_W = 4000 W` is set to `NaN`. (*Reason:* The official REFIT threshold for corrupt transmissions. The official pipeline sets these to 0; we set them to NaN so gap and outage detection remains mathematically honest).
-   - Any aggregate reading exceeding `AGG_EXTREME_W = 23000 W` is set to `NaN`. (*Reason:* UK domestic 100 A @ 230 V physical supply boundary).
+   - Any appliance channel reading exceeding `APPLIANCE_SPIKE_W = 4000 W` is set to `NaN` (the threshold defined in official REFIT documentation; set to NaN rather than 0 so gap logic remains unskewed).
+   - Any aggregate reading exceeding `AGG_EXTREME_W = 23000 W` is set to `NaN` (~100 A @ 230 V UK domestic supply ceiling).
    - Any negative active power reading is set to `NaN`.
 4. **Regular 1-Minute Resampling:** Resample time series to regular 1-minute bins using `.mean()` for power channels. Power is strictly averaged, never summed.
 5. **Gap Treatment:**
-   - Missing intervals of duration `<= SHORT_GAP_MIN = 5 minutes` are linearly interpolated and tagged with `interpolated = True`. (*Reason:* Sensor packet drops during steady appliance runs can be faithfully reconstructed over short intervals).
-   - Missing intervals of duration `> 5 minutes` are flagged in the `outage = True` boolean mask and preserved as `NaN`. (*Reason:* Filling multi-hour outages creates fictitious energy consumption).
+   - Missing intervals of duration `<= SHORT_GAP_MIN = 5 minutes` are linearly interpolated and tagged with `interpolated = True`.
+   - Missing intervals of duration `> 5 minutes` are flagged in the `outage = True` boolean mask and preserved as `NaN`.
 6. **Artifact Output:** Serialized to `data/processed/house1_raw_clean_1min.parquet` with snappy compression and full boolean quality masks.
 
 ---
@@ -517,7 +517,7 @@ The cleaning pipeline (`src/cleaning.py`) processes raw House 1 data according t
    Illustrates raw sensor dropouts on 2013-10-14, demonstrating linear interpolation of short gaps (<= 5 min) and unpopulated NaN masking of extended outages (> 5 min).
 
 3. **Sampling Interval Distribution (`figures/s1_sampling_intervals.png`):**
-   Validates nominal polling dynamics, showing a narrow distribution centered at 7-8 seconds with a heavy tail of network dropouts.
+   Validates nominal polling dynamics, showing a narrow distribution centered at 7-8 seconds with a heavy tail of extended gaps.
 """
 
     with open(data_md_path, "w", encoding="utf-8") as f:
