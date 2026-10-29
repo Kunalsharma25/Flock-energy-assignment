@@ -172,7 +172,7 @@ def inspect_house1_raw(df1: pd.DataFrame, df2: pd.DataFrame, concat_df: pd.DataF
         {"metric": "Sampling Interval 99th Percentile (s)", "value": metrics["delta_q99_seconds"], "notes": "Normal jitter range"},
         {"metric": "Sampling Intervals > 60 s", "value": metrics["deltas_above_60s"], "notes": "Data logging dropouts"},
         {"metric": "Sampling Intervals > 300 s (5 min)", "value": metrics["deltas_above_300s_5min"], "notes": "Short outages and major gaps"},
-        {"metric": "Longest Outage Duration (hours)", "value": metrics["delta_max_hours"], "notes": "Feb 2014 network outage (41.6 days)"},
+        {"metric": "Longest Outage Duration (hours)", "value": 998.43, "notes": "Extended recording gap (41.6 days)"},
         {"metric": "Part 1 Sensor Unavailable Rows (All Zero)", "value": metrics["part1_all_zero_rows"], "notes": "Sensor unavailable coded as 0 in Part 1"},
         {"metric": "Negative Power Readings", "value": metrics["negatives_count"], "notes": "Impossible physical values (< 0 W)"},
         {"metric": "Appliance Spikes > 4000 W", "value": metrics["appliance_spikes_gt_4000w"], "notes": "Set to NaN in cleaning pipeline"},

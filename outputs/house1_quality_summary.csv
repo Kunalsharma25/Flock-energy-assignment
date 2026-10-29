@@ -14,7 +14,7 @@ Sampling Interval 95th Percentile (s),13.0,Normal jitter range
 Sampling Interval 99th Percentile (s),15.0,Normal jitter range
 Sampling Intervals > 60 s,4040,Data logging dropouts
 Sampling Intervals > 300 s (5 min),390,Short outages and major gaps
-Longest Outage Duration (hours),998.45,Feb 2014 network outage (41.6 days)
+Longest Outage Duration (hours),998.43,Extended recording gap (41.6 days)
 Part 1 Sensor Unavailable Rows (All Zero),0,Sensor unavailable coded as 0 in Part 1
 Negative Power Readings,0,Impossible physical values (< 0 W)
 Appliance Spikes > 4000 W,3949,Set to NaN in cleaning pipeline

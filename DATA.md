@@ -36,12 +36,15 @@ The raw House 1 dataset consists of two chronological segments: `RAW_House1_Part
 | **Timestamp Duplicates** | 1,211,048 duplicate rows | 2,167,063 total rows fall into duplicated timestamp groups. 764,126 unique timestamps have duplicates within a single file, and 191,889 unique timestamps span both files during the overlap period (June 27 to October 1, 2014). 276,310 duplicate timestamps carry differing sensor values. Averaging duplicated timestamps provides a single value per second without discarding records. |
 | **Sampling Dropouts** | 4,040 intervals > 60 s | Consecutive timestamp deltas greater than 60 seconds. Intervals <= 5 minutes are linearly interpolated after 1-min resampling. |
 | **Extended Outages** | 390 intervals > 300 s (raw) / 375 gaps > 5 min (1-min grid) | Consecutive missing spans in the 1-minute grid exceeding 5 minutes. These are tagged in the `outage` boolean mask and left unpopulated (NaN). |
-| **Maximum Outage** | 998.45 hours (41.6 days) | Extended recording gap from `2014-01-24 01:57:00` to `2014-03-06 16:22:00 UTC` (59,906 consecutive missing 1-minute intervals). |
+| **Maximum Outage** | 998.43 hours (41.6 days) | Extended recording gap from `2014-01-24 01:57:00` to `2014-03-06 16:22:00 UTC` (59,906 consecutive missing 1-minute intervals). |
 | **Part 1 All-Zero Rows** | 0 rows | Rows where all 10 channels simultaneously equal 0.0 W. |
 | **Negative Power Values** | 0 rows | Active power readings below 0 W. |
 | **Appliance Spikes (> 4000 W)** | 3,949 spikes | Readings exceeding the `APPLIANCE_SPIKE_W = 4000 W` threshold. Set to NaN in the cleaning pipeline. |
 | **Aggregate Extremes (> 23 kW)** | 77 rows | Whole-house aggregate readings exceeding the `AGG_EXTREME_W = 23000 W` threshold. Set to NaN. |
 | **Sub-meter Exceeding Aggregate** | 50,228 rows | Instances where an individual sub-metered appliance channel records a value greater than the concurrent whole-house aggregate reading. |
+
+> [!NOTE]
+> **Spring Clock Transitions:** The two isolated 60-minute gaps recorded on `2014-03-30 01:00` and `2015-03-29 01:00` coincide exactly with the annual spring UK clock transitions, consistent with local wall-clock logging behavior during the forward shift to BST.
 
 #### Top 5 Largest Outages in House 1
 | Outage Start (UTC) | Outage End (UTC) | Duration |
