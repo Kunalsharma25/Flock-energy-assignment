@@ -9,6 +9,8 @@
     "MERGE_GAP_MIN": 10,
     "MIN_CYCLE_MIN": 10,
     "MIN_CYCLE_WH": 20.0,
+    "MAX_CYCLE_MIN": 300,
+    "MAX_CYCLE_WH": 3500.0,
     "MIN_USABLE_DAYS": 90,
     "MIN_CYCLES": 100,
     "SIG_DUR_RANGE_MIN": [20, 240],

@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import pytest
 
-from src.cycles import detect_cycles
+from src.cycles import detect_cycles, mask_appliance_flatline
 
 
 def test_constant_1000w_energy():
@@ -71,3 +71,33 @@ def test_cycle_touching_nan_discarded():
     p2.iloc[25] = np.nan
     cycles2 = detect_cycles(p2)
     assert len(cycles2) == 0
+
+
+def test_max_ceiling_discarded():
+    """Cycles exceeding max_dur or max_wh are discarded as unphysical."""
+    idx = pd.date_range("2014-01-01 00:00:00", periods=400, freq="1min", tz="UTC")
+    p = pd.Series(0.0, index=idx)
+    # 350 min cycle @ 500 W (exceeds default max_dur=300)
+    p.iloc[10:360] = 500.0
+    cycles = detect_cycles(p, max_dur=300)
+    assert len(cycles) == 0
+
+    # 100 min cycle @ 3000 W (energy = 5000 Wh, exceeds max_wh=3500)
+    p2 = pd.Series(0.0, index=idx)
+    p2.iloc[10:110] = 3000.0
+    cycles2 = detect_cycles(p2, max_wh=3500.0)
+    assert len(cycles2) == 0
+
+
+def test_mask_appliance_flatline():
+    """Individual appliance channel constant for >= 15 min while ON is masked to NaN."""
+    idx = pd.date_range("2014-01-01 00:00:00", periods=50, freq="1min", tz="UTC")
+    p = pd.Series(0.0, index=idx)
+    # 20 min constant at 64 W (exceeds 15 min stale threshold while > 20 W)
+    p.iloc[10:30] = 64.0
+    masked = mask_appliance_flatline(p, on_w=20.0, stale_min=15)
+    # Stale indices should be NaN
+    assert masked.iloc[10:30].isna().all()
+    # Surrounding zeros should remain unmasked
+    assert (masked.iloc[0:10] == 0.0).all()
+    assert (masked.iloc[30:50] == 0.0).all()

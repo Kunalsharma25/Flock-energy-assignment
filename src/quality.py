@@ -10,7 +10,7 @@ import matplotlib.pyplot as plt
 
 from . import config as C
 from . import plotting as P
-from .cycles import detect_cycles, long_runs, run_lengths
+from .cycles import detect_cycles, long_runs, run_lengths, mask_appliance_flatline
 
 
 def compute_house_masks(df: pd.DataFrame) -> pd.DataFrame:
@@ -135,6 +135,7 @@ def generate_cycle_tuning_figure(eligible_candidates: List[Tuple[int, int, str]]
         stale = long_runs(unchanged, C.STALE_MIN)
 
         wm = df[f"a{ch}"].copy()
+        wm = mask_appliance_flatline(wm, on_w=C.ON_W, stale_min=C.STALE_MIN)
         wm[~present | stale] = np.nan
         if h == 13:
             wm = wm.loc[:C.H13_WM_END_UTC]
@@ -261,8 +262,8 @@ def build_availability_table() -> Tuple[pd.DataFrame, pd.DataFrame]:
         pct_zero = float((usable_wm == 0).mean() * 100) if len(usable_wm) > 0 else 100.0
         pct_off = float((usable_wm <= C.ON_W).mean() * 100) if len(usable_wm) > 0 else 100.0
 
-        # Cycle detection: mask true outages and stale runs
-        wm_for_cycles = wm_series.copy()
+        # Cycle detection: mask true outages, stale runs, and per-appliance flatlines
+        wm_for_cycles = mask_appliance_flatline(wm_series.copy(), on_w=C.ON_W, stale_min=C.STALE_MIN)
         wm_for_cycles[~present_mask | stale_mask] = np.nan
         cycles = detect_cycles(wm_for_cycles)
 

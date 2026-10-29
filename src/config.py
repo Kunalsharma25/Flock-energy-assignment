@@ -62,6 +62,8 @@ ON_W = 20.0  # washing machine ON above this power
 MERGE_GAP_MIN = 10  # merge ON segments separated by <= this many minutes (mid-cycle pauses)
 MIN_CYCLE_MIN = 10  # discard cycles shorter than this
 MIN_CYCLE_WH = 20.0  # discard cycles with less energy than this
+MAX_CYCLE_MIN = 300  # discard cycles longer than this (5 hours; physical ceiling)
+MAX_CYCLE_WH = 3500.0  # discard cycles with active energy exceeding this (3.5 kWh; physical ceiling)
 # eligibility (Phase 4)
 MIN_USABLE_DAYS = 90
 MIN_CYCLES = 100

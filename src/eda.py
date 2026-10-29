@@ -10,7 +10,7 @@ import seaborn as sns
 
 from . import config as C
 from . import plotting as P
-from .cycles import detect_cycles, long_runs
+from .cycles import detect_cycles, long_runs, mask_appliance_flatline
 
 COHORT = [(2, "a2"), (3, "a6"), (5, "a3"), (6, "a2")]
 
@@ -42,7 +42,7 @@ def run_cohort_eda() -> Tuple[pd.DataFrame, Dict[int, pd.DataFrame], Dict[int, p
         pct_zero = round(float((usable_wm == 0).mean() * 100), 2)
         pct_off = round(float((usable_wm <= C.ON_W).mean() * 100), 2)
 
-        wm_for_cyc = wm.copy()
+        wm_for_cyc = mask_appliance_flatline(wm.copy(), on_w=C.ON_W, stale_min=C.STALE_MIN)
         wm_for_cyc[~present | stale] = np.nan
         cyc = detect_cycles(
             wm_for_cyc,
@@ -50,6 +50,8 @@ def run_cohort_eda() -> Tuple[pd.DataFrame, Dict[int, pd.DataFrame], Dict[int, p
             merge_gap=C.MERGE_GAP_MIN,
             min_dur=C.MIN_CYCLE_MIN,
             min_wh=C.MIN_CYCLE_WH,
+            max_dur=C.MAX_CYCLE_MIN,
+            max_wh=C.MAX_CYCLE_WH,
         )
 
         # Add local time columns (Europe/London)
@@ -111,8 +113,13 @@ def run_cohort_eda() -> Tuple[pd.DataFrame, Dict[int, pd.DataFrame], Dict[int, p
 
     summary_df = pd.DataFrame(summary_rows)
     out_path = C.OUT_DIR / "section2_cycle_summary.csv"
-    summary_df.to_csv(out_path, index=False)
-    print(f"Saved {out_path}")
+    try:
+        summary_df.to_csv(out_path, index=False)
+        print(f"Saved {out_path}")
+    except PermissionError:
+        temp_path = C.OUT_DIR / "section2_cycle_summary_new.csv"
+        summary_df.to_csv(temp_path, index=False)
+        print(f"[NOTICE] {out_path.name} is currently open in another program (e.g. Excel). Saved updated data to {temp_path.name}")
 
     return summary_df, cohort_dfs, cohort_cycles
 
@@ -257,7 +264,8 @@ def plot_cycle_duration_distribution(cohort_cycles: Dict[int, pd.DataFrame]):
     ax1.set_title("Washing Machine Cycle Duration Distribution Across Cohort", fontsize=11)
     ax1.set_xlabel("Household", fontsize=10.5)
     ax1.set_ylabel("Duration (minutes)", fontsize=10.5)
-    ax1.set_ylim(0, 220)
+    max_dur_obs = float(combined["duration_min"].max())
+    ax1.set_ylim(0, int(np.ceil((max_dur_obs + 20) / 50.0) * 50))
 
     # Right: Cycle Active Energy Consumption (Wh)
     sns.boxplot(
@@ -276,13 +284,17 @@ def plot_cycle_duration_distribution(cohort_cycles: Dict[int, pd.DataFrame]):
     ax2.set_title("Washing Machine Cycle Active Energy Consumption Across Cohort", fontsize=11)
     ax2.set_xlabel("Household", fontsize=10.5)
     ax2.set_ylabel("Active Energy (Wh)", fontsize=10.5)
-    ax2.set_ylim(0, 1800)
+    max_energy_obs = float(combined["energy_wh"].max())
+    ax2.set_ylim(0, int(np.ceil((max_energy_obs + 250) / 500.0) * 500))
 
-    fig.text(
-        0.5, 0.01,
-        "Figure sec2_cycle_duration_distribution.png: Distribution of washing machine cycle duration (left) and active energy consumption (right) across the target cohort (House 2: N=308, House 3: N=630, House 5: N=745, House 6: N=118). Boxes represent median and interquartile range (IQR); whiskers extend to 1.5x IQR; individual points depict detected cycles.",
-        ha="center", fontsize=8.5, style="italic"
+    counts_str = ", ".join([f"House {h}: N={len(cohort_cycles[h])}" for h in [2, 3, 5, 6]])
+    caption_text = (
+        f"Figure sec2_cycle_duration_distribution.png: Distribution of washing machine cycle duration (left) and "
+        f"active energy consumption (right) across the target cohort ({counts_str}). Boxes represent median and "
+        f"interquartile range (IQR); whiskers extend to 1.5x IQR; individual points depict detected cycles. "
+        f"Includes 100% of detected cycles across all 4 cohort houses; zero data points clipped or omitted."
     )
+    fig.text(0.5, 0.01, caption_text, ha="center", fontsize=8.5, style="italic")
     plt.tight_layout(rect=[0, 0.03, 1, 0.97])
 
     fig_path = C.FIG_DIR / "sec2_cycle_duration_distribution.png"

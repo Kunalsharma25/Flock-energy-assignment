@@ -120,7 +120,32 @@ This occurs because rapid power transients during the energizing of 2.0–2.4 kW
 
 ---
 
-### 2.2 Target Cohort Selection Rationale
+### 2.2 Case Study in Sensor Faults: Single-Channel Transmitter Freeze vs. Multivariate Masking
+
+During preliminary cycle detection on House 5 (Appliance 3), an inspection of cycle extremes uncovered two unphysical anomalies:
+1. **47.8-Hour Phantom Cycle (2,867 minutes):** From `2014-10-28 18:37` to `2014-10-30 18:23 UTC`, Appliance 3 recorded a continuous active cycle of 2,867 minutes with an active energy of 3,057.8 Wh, an invariant mean of 63.99 W, and peak of 64.00 W.
+2. **27.8 kWh Phantom Cycle (785 minutes / 13.1 hours):** On `2014-03-23` from 07:46 to 20:50 UTC, Appliance 3 drew an unbroken mean power of 2,124.25 W (peak 2,129.00 W), accumulating 27,792.3 Wh (27.8 kWh) in a single uninterrupted stretch. A secondary 12.0-hour event occurred on `2014-08-08` accumulating 24.63 kWh at ~2,046 W.
+
+#### Why Multivariate Masking Failed
+The baseline Phase 4 `stale` mask was formulated across all 10 channels simultaneously:
+$$\text{unchanged} = \left(\bigwedge_{i=1}^{10} |\Delta P_i| < 0.01\text{ W}\right) \land \text{present}$$
+This rule successfully identifies whole-gateway receiver lockouts and communication forward-fills (e.g. House 1 on `2014-08-01` where all channels flatlined simultaneously). However, in House 5, the failure was an **isolated single-channel hardware freeze**: the individual Current Cost transmitter plug monitoring Appliance 3 locked up internally and broadcast the exact same floating-point reading for 778 consecutive minutes (`2129.000000 W`, `std = 0.000000`) and 2,863 consecutive minutes (`64.000000 W`, `std = 0.000000`), while the main gateway meter and other 8 appliance plugs continued normal, varying transmissions. Because the other channels fluctuated, multivariate `stale` was evaluated as `False`. And because both 64 W and 2129 W exceed the activation threshold $\text{ON\_W} = 20\text{ W}$, the cycle detection engine merged these frozen intervals into massive, unphysical "cycles".
+
+#### The Dual-Layer Robustness Solution
+To guarantee pipeline robustness against real-world hardware failure modes without cherry-picking or manual data deletion, two automated domain-informed protections were implemented:
+1. **Appliance-Level Flatline Detection (`mask_appliance_flatline`):**
+   Any individual appliance channel that remains constant ($|\Delta P| < 0.01\text{ W}$) for $\ge 15$ consecutive minutes while drawing active power ($P > 20\text{ W}$) is tagged as an isolated transmitter freeze and masked to `NaN`. In real physical domestic washing cycles, power is never mathematically invariant for 15+ minutes: heating elements cycle via thermostats, and electric motors exhibit continuous current fluctuation during drum agitation.
+2. **Physical Domain Bounds (`MAX_CYCLE_MIN = 300`, `MAX_CYCLE_WH = 3500`):**
+   Domestic wash/rinse/spin cycles operate within well-established physical ceilings. Any detected run exceeding 300 minutes (5 hours) or consuming $> 3,500\text{ Wh}$ ($3.5\text{ kWh}$) is discarded as an appliance fault or unmonitored consecutive-run merge.
+
+Applying this dual-layer filter completely eliminates all phantom cycles in House 5:
+- **Maximum duration** drops from 2,867 min (47.8 h) to **286 min** (4.8 h, a realistic multi-rinse heavy cotton wash).
+- **Maximum active energy** drops from 27,792.3 Wh (27.8 kWh) to **1,820.4 Wh** (1.82 kWh).
+- **Cohort sample size:** House 5 retains **572 authentic wash cycles** (comfortably above the 100-cycle threshold), with realistic distribution metrics (median duration 39.0 min, median energy 267.1 Wh).
+
+---
+
+### 2.3 Target Cohort Selection Rationale
 
 The target cohort for exploratory data analysis and NILM disaggregation modeling is locked to **House 2, House 3, House 5, and House 6** (`outputs/selection_frozen.json`).
 
@@ -134,14 +159,14 @@ All four homes comfortably exceed the data quality thresholds (>450 usable days,
 3. **Appliance Density & Electrical Complexity:**
    - Ranges from low complexity (House 2: 15 total appliances owned) to medium complexity (House 3: 27 appliances) to high complexity (House 5: 44 appliances; House 6: 49 appliances).
 4. **Behavioral Laundering Diversity:**
-   - **House 5:** High-frequency, rapid wash cycles (9.70 cycles/week, median duration 44.0 min, median energy 280.9 Wh).
-   - **House 3:** Frequent, standard wash cycles (9.04 cycles/week, median duration 66.0 min, median energy 547.8 Wh).
-   - **House 2:** Moderate-frequency, extended cycles (4.77 cycles/week, median duration 97.0 min, median energy 623.5 Wh).
+   - **House 5:** High-frequency, rapid wash cycles (7.45 cycles/week, median duration 39.0 min, median energy 267.1 Wh).
+   - **House 3:** Frequent, standard wash cycles (8.98 cycles/week, median duration 66.0 min, median energy 548.3 Wh).
+   - **House 2:** Moderate-frequency, extended cycles (4.76 cycles/week, median duration 97.0 min, median energy 625.6 Wh).
    - **House 6:** Low-frequency, heavy eco-wash cycles (1.73 cycles/week, median duration 129.0 min, median energy 672.5 Wh).
 
 ---
 
-### 2.3 Cohort Washing Machine Cycle Summary (`outputs/section2_cycle_summary.csv`)
+### 2.4 Cohort Washing Machine Cycle Summary (`outputs/section2_cycle_summary.csv`)
 
 | Metric | House 2 (a2) | House 3 (a6) | House 5 (a3) | House 6 (a2) |
 |---|---|---|---|---|
@@ -153,16 +178,16 @@ All four homes comfortably exceed the data quality thresholds (>450 usable days,
 | **Checksum Issues (% Issues)** | 1.51% | 6.85% | 7.59% | 1.75% |
 | **Standby Power (% Zero)** | 95.05% | 94.12% | 53.33%* | 97.60% |
 | **Inactive Appliance (% Off $\le$ 20W)** | 95.99% | 95.39% | 94.09% | 98.29% |
-| **Total Detected Cycles** | **308** | **630** | **745** | **118** |
-| **Cycles per Week** | **4.77** | **9.04** | **9.70** | **1.73** |
-| **Duration: Median (IQR)** | 97.0 min (16.0 min) | 66.0 min (8.0 min) | 44.0 min (45.0 min) | 129.0 min (63.8 min) |
-| **Duration: Mean $\pm$ Std** | 101.1 $\pm$ 24.1 min | 67.4 $\pm$ 11.2 min | 76.2 $\pm$ 119.5 min | 104.5 $\pm$ 50.8 min |
-| **Duration: Range [Min, Max]** | [16, 257] min | [10, 216] min | [10, 2867] min | [14, 271] min |
-| **Active Energy: Median (IQR)** | 623.5 Wh (198.8 Wh) | 547.8 Wh (185.5 Wh) | 280.9 Wh (304.8 Wh) | 672.5 Wh (413.9 Wh) |
-| **Active Energy: Mean $\pm$ Std** | 621.6 $\pm$ 213.9 Wh | 562.2 $\pm$ 206.8 Wh | 499.3 $\pm$ 1184.2 Wh | 645.8 $\pm$ 343.8 Wh |
-| **Active Energy: Range [Min, Max]** | [23.5, 1567.8] Wh | [22.7, 1579.0] Wh | [20.2, 27792.3] Wh | [25.9, 1568.0] Wh |
-| **Peak Power: Median (Mean)** | 2091.0 W (2074.8 W) | 1924.6 W (1884.0 W) | 2061.4 W (1717.5 W) | 2048.5 W (1831.9 W) |
-| **Mean Active Cycle Power** | 381.4 W | 491.1 W | 402.6 W | 364.2 W |
+| **Total Detected Cycles** | **307** | **626** | **572** | **118** |
+| **Cycles per Week** | **4.76** | **8.98** | **7.45** | **1.73** |
+| **Duration: Median (IQR)** | 97.0 min (15.5 min) | 66.0 min (8.0 min) | 39.0 min (28.0 min) | 129.0 min (63.8 min) |
+| **Duration: Mean $\pm$ Std** | 101.3 $\pm$ 29.8 min | 67.6 $\pm$ 18.0 min | 51.1 $\pm$ 39.0 min | 104.5 $\pm$ 52.4 min |
+| **Duration: Range [Min, Max]** | [16, 257] min | [10, 216] min | [10, 286] min | [14, 271] min |
+| **Active Energy: Median (IQR)** | 625.6 Wh (196.3 Wh) | 548.3 Wh (183.2 Wh) | 267.1 Wh (207.1 Wh) | 672.5 Wh (413.9 Wh) |
+| **Active Energy: Mean $\pm$ Std** | 623.4 $\pm$ 213.1 Wh | 564.4 $\pm$ 187.9 Wh | 316.4 $\pm$ 233.0 Wh | 645.8 $\pm$ 350.4 Wh |
+| **Active Energy: Range [Min, Max]** | [23.5, 1567.8] Wh | [22.7, 1579.0] Wh | [20.2, 1820.4] Wh | [25.9, 1568.0] Wh |
+| **Peak Power: Median (Mean)** | 2091.4 W (2081.2 W) | 1924.6 W (1892.5 W) | 2065.8 W (1813.5 W) | 2048.5 W (1831.9 W) |
+| **Mean Active Cycle Power** | 382.4 W | 493.1 W | 390.8 W | 364.2 W |
 | **Occupancy (Persons)** | 4 | 2 | 4 | 2 |
 | **Appliances Owned** | 15 | 27 | 44 | 49 |
 | **Tumble Dryer Present** | No | Yes (Appliance 4) | Yes (Appliance 2) | No |
@@ -172,14 +197,14 @@ All four homes comfortably exceed the data quality thresholds (>450 usable days,
 
 ---
 
-### 2.4 Section 2 Visualizations
+### 2.5 Section 2 Visualizations
 
 1. **Typical Cycle Profiles & Representative 24-Hour Whole-Home Trace (`figures/sec2_typical_cycle_profile.png`):**
    - **Top Subplots:** Exemplar individual wash cycles across Houses 2, 3, 5, and 6 selected nearest to their respective median duration and active energy. Highlights the characteristic multi-phase signature: initial water heating spike (1900–2100 W for 10–20 min), drum agitation (~100–300 W with pause intervals), intermediate rinses, and final high-speed spin extraction (~500–800 W).
    - **Bottom Subplot:** Representative 24-hour trace for House 3 on `2015-05-07` in UK local time (BST), selected deterministically as the median-energy full-coverage day with 2 active cycles (daily washing machine active energy: 1032.8 Wh; household aggregate: 15.09 kWh). Clearly demonstrates the distinct high-wattage pulses of washing cycles amidst ambient background baseload.
 
 2. **Cycle Duration and Energy Distributions (`figures/sec2_cycle_duration_distribution.png`):**
-   Side-by-side boxplots with overlaid jittered points depicting cycle duration (minutes) and active energy (Wh) across the 4 cohort homes. Illustrates the contrast between rapid, low-energy laundering (House 5: median 44 min, 281 Wh) and prolonged eco-cycles (House 6: median 129 min, 673 Wh; House 2: median 97 min, 624 Wh).
+   Side-by-side boxplots with overlaid jittered points depicting cycle duration (minutes) and active energy (Wh) across the 4 cohort homes. The plotting axes are scaled naturally to encompass 100% of all detected cycles across all 4 cohort houses (House 2: N=307, House 3: N=626, House 5: N=572, House 6: N=118), with zero data points clipped or omitted. Illustrates the contrast between rapid, low-energy laundering (House 5: median 39 min, 267 Wh) and prolonged eco-cycles (House 6: median 129 min, 673 Wh; House 2: median 97 min, 626 Wh).
 
 3. **Diurnal and Weekly Usage Patterns (`figures/sec2_usage_patterns.png`):**
    Evaluated strictly in UK local time (`Europe/London`). Shows a marked diurnal preference with a primary morning peak between 08:00 and 12:00 local time, a secondary late afternoon/evening peak (16:00–20:00), and near-zero overnight laundering (<2% between 00:00 and 06:00). Day-of-week analysis and the joint hour-by-weekday heatmap reveal household-specific laundry habits (e.g. weekend laundering peaks in working households).
