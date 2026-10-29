@@ -1,0 +1,21 @@
+house,channel,usable_days,pass_days,n_cycles,pass_cycles,median_duration_min,pass_duration,median_peak_w,pass_peak,eligible,status
+1,a5,546.1,True,387,True,33.0,True,2324.8,True,True,Eligible
+2,a2,452.6,True,308,True,97.0,True,2091.0,True,True,Eligible
+3,a6,499.1,True,632,True,66.0,True,1924.6,True,True,Eligible
+4a,a4,511.8,True,59,False,54.0,True,2540.9,True,False,Excluded: Cycle count (59) < 100
+4b,a5,511.8,True,207,True,51.0,True,2556.5,True,True,Eligible
+5,a3,538.5,True,745,True,44.0,True,2061.4,True,True,Eligible
+6,a2,478.7,True,118,True,129.0,True,2048.5,True,True,Eligible
+7,a5,509.4,True,828,True,60.0,True,2082.6,True,True,Eligible
+8,a4,486.9,True,363,True,60.0,True,2337.4,True,True,Eligible
+9,a3,444.2,True,238,True,74.0,True,2210.4,True,True,Eligible
+10,a5,465.7,True,586,True,120.0,True,2053.0,True,True,Eligible
+11,a3,339.6,True,108,True,51.0,True,2281.3,True,True,Eligible
+13,a3,316.2,True,275,True,68.0,True,2128.9,True,True,Eligible
+15,a3,478.2,True,257,True,90.0,True,2176.8,True,True,Eligible
+16,a5,437.0,True,301,True,73.0,True,2050.3,True,True,Eligible
+17,a4,414.5,True,303,True,57.0,True,2038.8,True,True,Eligible
+18,a5,391.1,True,134,True,48.0,True,2189.6,True,True,Eligible
+19,a2,420.1,True,249,True,102.0,True,1739.8,True,True,Eligible
+20,a4,410.8,True,190,True,74.0,True,2271.8,True,True,Eligible
+21,a3,381.8,True,232,True,86.0,True,2141.6,True,True,Eligible

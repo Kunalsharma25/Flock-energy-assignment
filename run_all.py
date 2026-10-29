@@ -69,6 +69,12 @@ def stage_section1():
     print("=" * 60)
 
 
+def stage_quality():
+    """Stage: Quality masks, stale check, cycle tuning, availability and eligibility."""
+    from src.quality import stage_quality as run_quality
+    run_quality()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run REFIT NILM pipeline stages.")
     parser.add_argument(
@@ -86,10 +92,13 @@ def main():
         stage_prepare()
     elif args.stage == "section1":
         stage_section1()
+    elif args.stage == "quality":
+        stage_quality()
     elif args.stage == "all":
         stage_download()
         stage_prepare()
         stage_section1()
+        stage_quality()
         # Future stages will be called here as they are implemented
     else:
         print(f"Stage '{args.stage}' not yet implemented or unknown.")
