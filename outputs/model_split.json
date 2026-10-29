@@ -1,0 +1,115 @@
+{
+  "cohort_houses": [
+    2,
+    3,
+    5,
+    6
+  ],
+  "cohort_channels": {
+    "2": "a2",
+    "3": "a6",
+    "5": "a3",
+    "6": "a2"
+  },
+  "primary_split": {
+    "train": [
+      2,
+      3
+    ],
+    "val": [
+      5
+    ],
+    "test": [
+      6
+    ],
+    "rationale": "Train houses (H2, H3) provide one home with a tumble dryer and one without, spanning both 2-person and 4-person occupancies. Validation (H5) tests generalization to a high-frequency, complex home with a tumble dryer for early stopping and threshold tuning. Test (H6) evaluates performance on an entirely unseen home with prolonged eco-cycles."
+  },
+  "loho_folds": {
+    "fold_h6_test": {
+      "train": [
+        2,
+        3
+      ],
+      "val": [
+        5
+      ],
+      "test": [
+        6
+      ]
+    },
+    "fold_h2_test": {
+      "train": [
+        5,
+        6
+      ],
+      "val": [
+        3
+      ],
+      "test": [
+        2
+      ]
+    },
+    "fold_h5_test": {
+      "train": [
+        2,
+        6
+      ],
+      "val": [
+        3
+      ],
+      "test": [
+        5
+      ]
+    },
+    "fold_h3_test": {
+      "train": [
+        2,
+        5
+      ],
+      "val": [
+        6
+      ],
+      "test": [
+        3
+      ]
+    }
+  },
+  "house_metadata": {
+    "2": {
+      "channel": "a2",
+      "first_timestamp_utc": "2013-09-17 22:08:00+00:00",
+      "last_timestamp_utc": "2015-05-28 08:05:00+00:00",
+      "total_minutes": 889078,
+      "occupancy": 4,
+      "appliances_owned": 15,
+      "has_tumble_dryer": false
+    },
+    "3": {
+      "channel": "a6",
+      "first_timestamp_utc": "2013-09-25 19:21:00+00:00",
+      "last_timestamp_utc": "2015-06-02 10:55:00+00:00",
+      "total_minutes": 885095,
+      "occupancy": 2,
+      "appliances_owned": 27,
+      "has_tumble_dryer": true
+    },
+    "5": {
+      "channel": "a3",
+      "first_timestamp_utc": "2013-09-26 09:56:00+00:00",
+      "last_timestamp_utc": "2015-07-06 17:48:00+00:00",
+      "total_minutes": 933593,
+      "occupancy": 4,
+      "appliances_owned": 44,
+      "has_tumble_dryer": true
+    },
+    "6": {
+      "channel": "a2",
+      "first_timestamp_utc": "2013-11-28 12:15:00+00:00",
+      "last_timestamp_utc": "2015-06-28 22:14:00+00:00",
+      "total_minutes": 831480,
+      "occupancy": 2,
+      "appliances_owned": 49,
+      "has_tumble_dryer": false
+    }
+  }
+}

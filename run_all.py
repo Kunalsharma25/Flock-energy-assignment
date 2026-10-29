@@ -81,6 +81,12 @@ def stage_eda():
     run_eda()
 
 
+def stage_model():
+    """Stage: NILM disaggregation model, baselines, and evaluation."""
+    from scripts.run_disaggregation import run_pipeline
+    run_pipeline()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run REFIT NILM pipeline stages.")
     parser.add_argument(
@@ -102,12 +108,15 @@ def main():
         stage_quality()
     elif args.stage == "eda":
         stage_eda()
+    elif args.stage == "model":
+        stage_model()
     elif args.stage == "all":
         stage_download()
         stage_prepare()
         stage_section1()
         stage_quality()
         stage_eda()
+        stage_model()
         # Future stages will be called here as they are implemented
     else:
         print(f"Stage '{args.stage}' not yet implemented or unknown.")

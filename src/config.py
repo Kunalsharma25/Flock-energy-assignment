@@ -42,6 +42,7 @@ DISHWASHER = {
 H1_CHANNELS = {
     "fridge": 1, "freezer1": 2, "washer_dryer": 4, "washing_machine": 5, "dishwasher": 6
 }  # for Section 1 plots
+CHANNELS = {2: "a2", 3: "a6", 5: "a3", 6: "a2"}  # cohort washing machine channels
 OCCUPANCY = {
     1: 2, 2: 4, 3: 2, 4: 2, 5: 4, 6: 2, 7: 4, 8: 2, 9: 2, 10: 4,
     11: 1, 12: 3, 13: 4, 15: 1, 16: 6, 17: 3, 18: 2, 19: 4, 20: 2, 21: 4
