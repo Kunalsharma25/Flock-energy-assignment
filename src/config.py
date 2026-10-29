@@ -57,7 +57,7 @@ MODEL_EXCLUDE_HOUSES = {4}  # two machines; ambiguous target. Kept in EDA only (
 APPLIANCE_SPIKE_W = 4000  # official REFIT rule; used on raw appliance channels
 AGG_EXTREME_W = 23000  # ~100 A x 230 V UK supply limit; flag above this (check distribution)
 SHORT_GAP_MIN = 5  # interpolate gaps <= this (Section 1)
-STALE_MIN = 30  # cleaned data: all channels unchanged for >= this many minutes = stale
+STALE_MIN = 15  # cleaned data: all channels unchanged for >= this many minutes = stale
 ON_W = 20.0  # washing machine ON above this power
 MERGE_GAP_MIN = 10  # merge ON segments separated by <= this many minutes (mid-cycle pauses)
 MIN_CYCLE_MIN = 10  # discard cycles shorter than this

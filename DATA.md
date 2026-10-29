@@ -85,3 +85,102 @@ The cleaning pipeline (`src/cleaning.py`) processes raw House 1 data according t
 
 3. **Sampling Interval Distribution (`figures/s1_sampling_intervals.png`):**
    Validates nominal polling dynamics, showing a narrow distribution centered at 7-8 seconds with a heavy tail of extended gaps.
+
+---
+
+## 2. Section 2: Washing Machine Data Quality Masks, Cohort Selection & Cycle Analysis
+
+### 2.1 Quality Masks and Empirical Justifications
+
+The 1-minute cleaned time series are filtered using four deterministic quality masks:
+1. `present`: True when whole-house aggregate active power is not `NaN`.
+2. `stale`: True during runs of $\ge 15$ consecutive minutes where all 10 channels simultaneously change by $< 0.01$ W.
+3. `bad_issue`: True when the official REFIT `Issues == 1` flag is present.
+4. `usable`: Defined as `present & ~stale & ~bad_issue` (used for feature engineering and power evaluation).
+
+#### Stale Threshold Justification (`STALE_MIN = 15` min)
+Analysis of consecutive unchanged intervals across all 20 houses (15,662,774 total minutes, 63,864 flat runs) demonstrates:
+- **1–2 min:** 56,196 runs (87.99%) — normal short-term discretization in standby loads.
+- **3–10 min:** 5,550 runs (8.69%) — stable baseload periods.
+- **11–29 min:** 1,825 runs (2.86%) — includes 1,033 runs between 20 and 29 minutes.
+- **30–59 min:** 123 runs (0.19%) — extended sensor lockouts.
+- **60+ min:** 170 runs (0.27%) — multi-hour frozen forward-fills.
+
+Direct inspection of 20–29 minute flat runs (e.g. House 1 on `2014-08-01` from 17:34:00 to 18:00:00 UTC) reveals that all 10 monitored channels remain simultaneously invariant down to $0.00$ W standard deviation (`aggregate: 227.0 W`, `a1: 0.0 W`, `a2: 45.0 W`, `a3: 72.0 W`, `a4–a8: 0.0 W`, `a9: 1.0 W`; `std = 0.000000` across all 10 channels). Real domestic aggregate power exhibits continuous second-to-second micro-fluctuations; simultaneous zero variance across 10 independent wireless channels indicates receiver forward-fill during transmitter dropouts. Lowering `STALE_MIN` from 30 to 15 flags 307,230 minutes (213.4 days, 1.96% of data) compared to 274,476 minutes at 30 min (190.6 days, 1.75% of data), excising 32,754 minutes (22.7 days) of frozen sensor data while leaving candidate eligibility completely unchanged (19/20 houses eligible under both thresholds).
+
+#### Masking Justification for Cycle Detection (`Issues == 1` Collision)
+While `Issues == 1` is masked out of model feature and target evaluation (`usable`), washing machine cycle boundaries are detected on `~present | stale`. Empirical audit of `Issues == 1` reveals that it occurs **4x to 58x more frequently** during active washing machine operation (`ON`) than during standby (`OFF`):
+- House 1 (a5): 32.85% of ON minutes have `Issues == 1` vs 1.50% of OFF minutes (21.96x ratio).
+- House 2 (a2): 16.94% of ON minutes have `Issues == 1` vs 1.27% of OFF minutes (13.36x ratio).
+- House 3 (a6): 27.06% of ON minutes have `Issues == 1` vs 6.76% of OFF minutes (4.00x ratio).
+- House 5 (a3): 27.39% of ON minutes have `Issues == 1` vs 6.55% of OFF minutes (4.18x ratio).
+- House 6 (a2): 11.33% of ON minutes have `Issues == 1` vs 1.89% of OFF minutes (5.99x ratio).
+
+This occurs because rapid power transients during the energizing of 2.0–2.4 kW water heating elements cause sub-metered channel readings to lead aggregate readings by several seconds, tripping the REFIT checksum algorithm (`Aggregate < sum(Appliances)`). Discarding candidate cycles for touching an `Issues == 1` minute eliminates 85% to 100% of authentic washing machine cycles across houses (e.g. 97.3% in H1, 96.2% in H2, 97.5% in H3, 91.7% in H5, 93.9% in H6). Conversely, masking true outages and stale forward-fills (`~present | stale`) preserves authentic cycles cleanly, discarding only 3.4% to 10.6% of cycles that truly intersect missing data.
+
+---
+
+### 2.2 Target Cohort Selection Rationale
+
+The target cohort for exploratory data analysis and NILM disaggregation modeling is locked to **House 2, House 3, House 5, and House 6** (`outputs/selection_frozen.json`).
+
+All four homes comfortably exceed the data quality thresholds (>450 usable days, >100 detected cycles, median peak power > 1900 W matching standard UK domestic heating elements). Crucially, the cohort provides a balanced 2x2 stratified experimental design across primary NILM confounders:
+1. **Tumble Dryer Confounder Stratification:**
+   - **With Tumble Dryer:** House 3 (Appliance 4) and House 5 (Appliance 2) possess dedicated high-power tumble dryers, presenting major resistive/inductive heating load signatures that challenge disaggregation algorithms.
+   - **Without Tumble Dryer:** House 2 and House 6 do not possess tumble dryers or washer-dryers.
+2. **Household Size & Occupancy Stratification:**
+   - **2-Person Households:** House 3 (2 occupants) and House 6 (2 occupants).
+   - **4-Person Households:** House 2 (4 occupants) and House 5 (4 occupants).
+3. **Appliance Density & Electrical Complexity:**
+   - Ranges from low complexity (House 2: 15 total appliances owned) to medium complexity (House 3: 27 appliances) to high complexity (House 5: 44 appliances; House 6: 49 appliances).
+4. **Behavioral Laundering Diversity:**
+   - **House 5:** High-frequency, rapid wash cycles (9.70 cycles/week, median duration 44.0 min, median energy 280.9 Wh).
+   - **House 3:** Frequent, standard wash cycles (9.04 cycles/week, median duration 66.0 min, median energy 547.8 Wh).
+   - **House 2:** Moderate-frequency, extended cycles (4.77 cycles/week, median duration 97.0 min, median energy 623.5 Wh).
+   - **House 6:** Low-frequency, heavy eco-wash cycles (1.73 cycles/week, median duration 129.0 min, median energy 672.5 Wh).
+
+---
+
+### 2.3 Cohort Washing Machine Cycle Summary (`outputs/section2_cycle_summary.csv`)
+
+| Metric | House 2 (a2) | House 3 (a6) | House 5 (a3) | House 6 (a2) |
+|---|---|---|---|---|
+| **Usable Start (UTC)** | 2013-09-17 22:08 | 2013-09-25 19:21 | 2013-09-26 09:56 | 2013-11-28 12:15 |
+| **Usable End (UTC)** | 2015-05-28 08:05 | 2015-06-02 10:55 | 2015-07-06 17:48 | 2015-06-28 22:14 |
+| **Usable Days** | 451.7 | 488.0 | 537.7 | 477.8 |
+| **Data Coverage (% Present)** | 75.38% | 88.62% | 90.66% | 84.75% |
+| **Stale Minutes (% Stale)** | 0.73% | 2.39% | 0.40% | 0.25% |
+| **Checksum Issues (% Issues)** | 1.51% | 6.85% | 7.59% | 1.75% |
+| **Standby Power (% Zero)** | 95.05% | 94.12% | 53.33%* | 97.60% |
+| **Inactive Appliance (% Off $\le$ 20W)** | 95.99% | 95.39% | 94.09% | 98.29% |
+| **Total Detected Cycles** | **308** | **630** | **745** | **118** |
+| **Cycles per Week** | **4.77** | **9.04** | **9.70** | **1.73** |
+| **Duration: Median (IQR)** | 97.0 min (16.0 min) | 66.0 min (8.0 min) | 44.0 min (45.0 min) | 129.0 min (63.8 min) |
+| **Duration: Mean $\pm$ Std** | 101.1 $\pm$ 24.1 min | 67.4 $\pm$ 11.2 min | 76.2 $\pm$ 119.5 min | 104.5 $\pm$ 50.8 min |
+| **Duration: Range [Min, Max]** | [16, 257] min | [10, 216] min | [10, 2867] min | [14, 271] min |
+| **Active Energy: Median (IQR)** | 623.5 Wh (198.8 Wh) | 547.8 Wh (185.5 Wh) | 280.9 Wh (304.8 Wh) | 672.5 Wh (413.9 Wh) |
+| **Active Energy: Mean $\pm$ Std** | 621.6 $\pm$ 213.9 Wh | 562.2 $\pm$ 206.8 Wh | 499.3 $\pm$ 1184.2 Wh | 645.8 $\pm$ 343.8 Wh |
+| **Active Energy: Range [Min, Max]** | [23.5, 1567.8] Wh | [22.7, 1579.0] Wh | [20.2, 27792.3] Wh | [25.9, 1568.0] Wh |
+| **Peak Power: Median (Mean)** | 2091.0 W (2074.8 W) | 1924.6 W (1884.0 W) | 2061.4 W (1717.5 W) | 2048.5 W (1831.9 W) |
+| **Mean Active Cycle Power** | 381.4 W | 491.1 W | 402.6 W | 364.2 W |
+| **Occupancy (Persons)** | 4 | 2 | 4 | 2 |
+| **Appliances Owned** | 15 | 27 | 44 | 49 |
+| **Tumble Dryer Present** | No | Yes (Appliance 4) | Yes (Appliance 2) | No |
+| **Washer Dryer Present** | No | No | No | No |
+
+*\*In House 5, Appliance 3 exhibits a continuous standby load of 1–3 W (electronic display/standby controller), resulting in 53.33% strictly zero readings, while remaining $\le 20$ W for 94.09% of usable time.*
+
+---
+
+### 2.4 Section 2 Visualizations
+
+1. **Typical Cycle Profiles & Representative 24-Hour Whole-Home Trace (`figures/sec2_typical_cycle_profile.png`):**
+   - **Top Subplots:** Exemplar individual wash cycles across Houses 2, 3, 5, and 6 selected nearest to their respective median duration and active energy. Highlights the characteristic multi-phase signature: initial water heating spike (1900–2100 W for 10–20 min), drum agitation (~100–300 W with pause intervals), intermediate rinses, and final high-speed spin extraction (~500–800 W).
+   - **Bottom Subplot:** Representative 24-hour trace for House 3 on `2015-05-07` in UK local time (BST), selected deterministically as the median-energy full-coverage day with 2 active cycles (daily washing machine active energy: 1032.8 Wh; household aggregate: 15.09 kWh). Clearly demonstrates the distinct high-wattage pulses of washing cycles amidst ambient background baseload.
+
+2. **Cycle Duration and Energy Distributions (`figures/sec2_cycle_duration_distribution.png`):**
+   Side-by-side boxplots with overlaid jittered points depicting cycle duration (minutes) and active energy (Wh) across the 4 cohort homes. Illustrates the contrast between rapid, low-energy laundering (House 5: median 44 min, 281 Wh) and prolonged eco-cycles (House 6: median 129 min, 673 Wh; House 2: median 97 min, 624 Wh).
+
+3. **Diurnal and Weekly Usage Patterns (`figures/sec2_usage_patterns.png`):**
+   Evaluated strictly in UK local time (`Europe/London`). Shows a marked diurnal preference with a primary morning peak between 08:00 and 12:00 local time, a secondary late afternoon/evening peak (16:00–20:00), and near-zero overnight laundering (<2% between 00:00 and 06:00). Day-of-week analysis and the joint hour-by-weekday heatmap reveal household-specific laundry habits (e.g. weekend laundering peaks in working households).
+

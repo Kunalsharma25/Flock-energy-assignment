@@ -75,6 +75,12 @@ def stage_quality():
     run_quality()
 
 
+def stage_eda():
+    """Stage: Washing machine exploratory data analysis, summary, and figures."""
+    from src.eda import stage_eda as run_eda
+    run_eda()
+
+
 def main():
     parser = argparse.ArgumentParser(description="Run REFIT NILM pipeline stages.")
     parser.add_argument(
@@ -94,11 +100,14 @@ def main():
         stage_section1()
     elif args.stage == "quality":
         stage_quality()
+    elif args.stage == "eda":
+        stage_eda()
     elif args.stage == "all":
         stage_download()
         stage_prepare()
         stage_section1()
         stage_quality()
+        stage_eda()
         # Future stages will be called here as they are implemented
     else:
         print(f"Stage '{args.stage}' not yet implemented or unknown.")

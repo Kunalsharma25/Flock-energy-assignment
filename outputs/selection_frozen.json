@@ -1,0 +1,60 @@
+{
+  "frozen_date": "2026-10-29",
+  "thresholds": {
+    "APPLIANCE_SPIKE_W": 4000,
+    "AGG_EXTREME_W": 23000,
+    "SHORT_GAP_MIN": 5,
+    "STALE_MIN": 15,
+    "ON_W": 20.0,
+    "MERGE_GAP_MIN": 10,
+    "MIN_CYCLE_MIN": 10,
+    "MIN_CYCLE_WH": 20.0,
+    "MIN_USABLE_DAYS": 90,
+    "MIN_CYCLES": 100,
+    "SIG_DUR_RANGE_MIN": [20, 240],
+    "SIG_MIN_PEAK_W": 500
+  },
+  "eligible_candidates": [
+    "1", "2", "3", "4b", "5", "6", "7", "8", "9", "10",
+    "11", "13", "15", "16", "17", "18", "19", "20", "21"
+  ],
+  "target_cohort": [2, 3, 5, 6],
+  "cohort_channels": {
+    "2": "a2",
+    "3": "a6",
+    "5": "a3",
+    "6": "a2"
+  },
+  "cohort_metadata": {
+    "2": {
+      "channel": "a2",
+      "occupancy": 4,
+      "appliances_owned": 15,
+      "has_tumble_dryer": false,
+      "has_washer_dryer": false
+    },
+    "3": {
+      "channel": "a6",
+      "occupancy": 2,
+      "appliances_owned": 27,
+      "has_tumble_dryer": true,
+      "tumble_dryer_channel": "a4",
+      "has_washer_dryer": false
+    },
+    "5": {
+      "channel": "a3",
+      "occupancy": 4,
+      "appliances_owned": 44,
+      "has_tumble_dryer": true,
+      "tumble_dryer_channel": "a2",
+      "has_washer_dryer": false
+    },
+    "6": {
+      "channel": "a2",
+      "occupancy": 2,
+      "appliances_owned": 49,
+      "has_tumble_dryer": false,
+      "has_washer_dryer": false
+    }
+  }
+}
