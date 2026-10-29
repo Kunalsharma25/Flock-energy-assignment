@@ -1,9 +1,11 @@
-"""NILM disaggregation model architectures and baselines (Phase 6).
+"""NILM disaggregation model architectures and baselines (Phase 6 v2).
 
 Implements:
   1. Baseline 1: Always Off (predicts 0 W)
   2. Baseline 2: Historical Mean by (weekday, hour) in local time
-  3. Main Model: LightGBM regressor with early stopping and post-processing
+  3. Baseline 3: Physical Rule — aggregate > 1500 W above 60-min rolling min
+                 sustained for >= 10 consecutive minutes
+  4. Main Model: LightGBM regressor with early stopping and post-processing
 """
 
 from typing import Tuple, Dict, Any
@@ -90,6 +92,57 @@ def postprocess_predictions(raw_preds: np.ndarray, agg_series: pd.Series) -> np.
     """
     clipped = np.clip(raw_preds, 0.0, agg_series.values)
     return clipped
+
+
+def zero_clamp(preds: np.ndarray, threshold: float) -> np.ndarray:
+    """Hard-zero all predictions below the ON threshold.
+
+    Eliminates idle-minute leakage: any prediction below the ON decision
+    threshold is clamped to exactly 0.0 W, removing phantom energy accumulation
+    across the 98%+ of minutes the washing machine is inactive.
+    """
+    clamped = preds.copy()
+    clamped[clamped < threshold] = 0.0
+    return clamped
+
+
+class BaselinePhysicalRule:
+    """Baseline 3: Physical rule-based detector.
+
+    Flags a washing machine ON when the whole-house aggregate power exceeds
+    its 60-minute rolling minimum by >= SPIKE_W for at least MIN_DUR consecutive
+    minutes. Predicted power during flagged windows equals (aggregate - rolling_min),
+    capped at a plausible washing machine maximum.
+
+    Rationale: A washing machine water-heating element draws ~2,000–2,500 W.
+    If the aggregate rises >= 1,500 W above its recent baseline and stays elevated
+    for >= 10 minutes, a large resistive load is almost certainly active.
+    """
+
+    SPIKE_W  = 1500.0   # minimum sustained lift above 60-min rolling min (W)
+    MIN_DUR  = 10       # minimum consecutive minutes above spike threshold
+    CAP_W    = 3000.0   # upper cap on estimated WM power (W)
+
+    def predict(self, agg: pd.Series) -> np.ndarray:
+        roll_min = agg.rolling(61, center=True, min_periods=1).min()
+        above = (agg - roll_min).fillna(0.0).values
+        triggered = above >= self.SPIKE_W
+
+        result = np.zeros(len(agg), dtype=np.float32)
+        run_len = 0
+        run_start = 0
+        for i, flag in enumerate(triggered):
+            if flag:
+                if run_len == 0:
+                    run_start = i
+                run_len += 1
+            else:
+                if run_len >= self.MIN_DUR:
+                    result[run_start:i] = np.clip(above[run_start:i], 0.0, self.CAP_W)
+                run_len = 0
+        if run_len >= self.MIN_DUR:
+            result[run_start:] = np.clip(above[run_start:], 0.0, self.CAP_W)
+        return result
 
 
 def optimize_on_threshold(

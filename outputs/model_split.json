@@ -13,8 +13,23 @@
   },
   "primary_split": {
     "train": [
+      1,
       2,
-      3
+      3,
+      4,
+      7,
+      8,
+      9,
+      10,
+      11,
+      13,
+      15,
+      16,
+      17,
+      18,
+      19,
+      20,
+      21
     ],
     "val": [
       5
@@ -22,13 +37,28 @@
     "test": [
       6
     ],
-    "rationale": "Train houses (H2, H3) provide one home with a tumble dryer and one without, spanning both 2-person and 4-person occupancies. Validation (H5) tests generalization to a high-frequency, complex home with a tumble dryer for early stopping and threshold tuning. Test (H6) evaluates performance on an entirely unseen home with prolonged eco-cycles."
+    "rationale": "Training uses all 17 eligible houses (all eligible minus val H5 and test H6) to maximise washing-machine cycle diversity across brands, occupancies, and usage habits. Validation (H5) provides cross-household early stopping and threshold tuning. Test (H6) evaluates performance on an entirely unseen home with prolonged eco-cycles."
   },
   "loho_folds": {
     "fold_h6_test": {
       "train": [
+        1,
         2,
-        3
+        3,
+        4,
+        7,
+        8,
+        9,
+        10,
+        11,
+        13,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21
       ],
       "val": [
         5
@@ -39,8 +69,23 @@
     },
     "fold_h2_test": {
       "train": [
+        1,
+        4,
         5,
-        6
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        13,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21
       ],
       "val": [
         3
@@ -51,8 +96,23 @@
     },
     "fold_h5_test": {
       "train": [
+        1,
         2,
-        6
+        4,
+        6,
+        7,
+        8,
+        9,
+        10,
+        11,
+        13,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21
       ],
       "val": [
         3
@@ -63,8 +123,23 @@
     },
     "fold_h3_test": {
       "train": [
+        1,
         2,
-        5
+        4,
+        5,
+        7,
+        8,
+        9,
+        10,
+        11,
+        13,
+        15,
+        16,
+        17,
+        18,
+        19,
+        20,
+        21
       ],
       "val": [
         6

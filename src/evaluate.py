@@ -11,6 +11,7 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error, precision_r
 from . import config as C
 from . import plotting as P
 from .cycles import detect_cycles
+from .splits import CHANNELS
 
 
 def compute_metrics(
@@ -102,154 +103,202 @@ def generate_s3_figures(
     y_pred_lgbm: pd.Series,
     y_pred_b1: pd.Series,
     y_pred_b2: pd.Series,
+    y_pred_rule: pd.Series,
     on_threshold: float,
 ):
-    """Generate the 3 required Section 3 figures in figures/."""
+    """Generate the 3 required Section 3 figures in figures/.
+
+    Day selection rules
+    -------------------
+    * Figure 1 (actual-vs-predicted): day with at least 1 true cycle; median
+      energy among qualifying days. NaN gaps in unusable minutes are rendered
+      as blank stretches rather than interpolated straight lines.
+    * Figure 2 (confounder): day with the highest false-positive energy in the
+      LightGBM predictions.
+    * Figure 3 (transfer): day with the highest mean absolute error.
+    Captions describe only what is plotted.
+    """
     P.set_style()
     C.FIG_DIR.mkdir(parents=True, exist_ok=True)
 
-    # -------------------------------------------------------------
-    # Figure 1: s3_actual_vs_predicted.png
-    # -------------------------------------------------------------
-    # Select representative 24h day in test house with active cycles and full coverage
+    # Helper: convert index to local time for a series, preserving NaN structure
+    def to_local(s: pd.Series) -> pd.Series:
+        s2 = s.copy()
+        s2.index = s.index.tz_convert(C.TZ_LOCAL)
+        return s2
+
+    # Build full-grid versions of every series (reindexed to df_raw; gaps become NaN)
+    full_idx = df_raw.index  # complete 1-min UTC index for test house
+    y_true_full  = y_true.reindex(full_idx)
+    lgbm_full    = y_pred_lgbm.reindex(full_idx)
+    b1_full      = y_pred_b1.reindex(full_idx)
+    b2_full      = y_pred_b2.reindex(full_idx)
+    rule_full    = y_pred_rule.reindex(full_idx)
+
+    # ── Figure 1: s3_actual_vs_predicted.png ─────────────────────────────────
+    # Select the day with ≥1 true cycle and median-energy among qualifying days.
     true_cyc = detect_cycles(y_true, on_w=C.ON_W)
-    y_true_local = y_true.copy()
-    y_true_local.index = y_true.index.tz_convert(C.TZ_LOCAL)
+    y_true_local_full = to_local(y_true_full)
 
     days_with_cycles = []
-    for d, g in y_true_local.groupby(y_true_local.index.date):
-        if len(g) >= 1400:  # near complete day
-            c_count = ((true_cyc["start"].dt.tz_convert(C.TZ_LOCAL).dt.date == d)).sum()
-            if c_count >= 1:
-                days_with_cycles.append((d, c_count, g.sum() / 60.0))
+    for d, g in y_true_local_full.groupby(y_true_local_full.index.date):
+        cyc_on_day = (true_cyc["start"].dt.tz_convert(C.TZ_LOCAL).dt.date == d).sum()
+        if cyc_on_day >= 1:
+            days_with_cycles.append((d, cyc_on_day, g.sum() / 60.0))
 
-    days_df = pd.DataFrame(days_with_cycles, columns=["date", "n_cycles", "energy_wh"])
-    if len(days_df) > 0:
+    if days_with_cycles:
+        days_df = pd.DataFrame(days_with_cycles, columns=["date", "n_cycles", "energy_wh"])
         med_e = days_df["energy_wh"].median()
         rep_day = days_df.iloc[(days_df["energy_wh"] - med_e).abs().argmin()]["date"]
     else:
-        rep_day = y_true_local.index[0].date()
+        rep_day = y_true_local_full.index[0].date()
 
-    rep_day_str = str(rep_day)
-    mask_day = (y_true.index.tz_convert(C.TZ_LOCAL).date == rep_day)
-
-    day_idx = y_true.index[mask_day]
+    rep_day_str  = str(rep_day)
+    mask_day     = (full_idx.tz_convert(C.TZ_LOCAL).date == rep_day)
+    day_idx      = full_idx[mask_day]
     day_idx_local = day_idx.tz_convert(C.TZ_LOCAL)
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(16, 8), sharex=True)
 
-    # Top: Household aggregate power
-    ax1.plot(day_idx_local, df_raw.loc[day_idx, "aggregate"], color="black", lw=1.2, label="Household Aggregate Power")
-    ax1.set_title(f"House {test_house} Whole-Home Aggregate Load on {rep_day_str} (Europe/London Local Time)", fontsize=11)
+    # Top: aggregate (NaN gaps appear as blank breaks in the line)
+    ax1.plot(day_idx_local, df_raw.loc[day_idx, "aggregate"],
+             color="black", lw=1.2, label="Whole-house aggregate")
     ax1.set_ylabel("Aggregate Power (W)", fontsize=10)
     ax1.legend(loc="upper right", fontsize=8.5)
     ax1.set_ylim(-50, max(4000, df_raw.loc[day_idx, "aggregate"].max() + 200))
 
-    # Bottom: Actual WM vs Baselines vs LightGBM
-    ax2.plot(day_idx_local, y_true.loc[day_idx], color="#1f77b4", lw=2.0, label="Ground Truth (Sub-metered)")
-    ax2.plot(day_idx_local, y_pred_lgbm.loc[day_idx], color="#d62728", lw=1.6, linestyle="--", label="LightGBM Disaggregation")
-    ax2.plot(day_idx_local, y_pred_b2.loc[day_idx], color="#2ca02c", lw=1.2, linestyle=":", label="Baseline 2 (Time-of-Day Mean)")
-    ax2.plot(day_idx_local, y_pred_b1.loc[day_idx], color="gray", lw=1.0, linestyle="-.", label="Baseline 1 (Always Off)")
-    ax2.axhline(on_threshold, color="purple", linestyle=":", lw=0.9, label=f"ON Threshold ({on_threshold:.0f} W)")
-
-    ax2.set_title(f"Disaggregation Comparison on {rep_day_str} (Day with median active cycle energy)", fontsize=11)
-    ax2.set_xlabel("Time of Day (HH:MM Europe/London)", fontsize=10)
+    # Bottom: WM truth and predictions
+    ax2.plot(day_idx_local, y_true_full.reindex(day_idx),
+             color="#1f77b4", lw=2.0, label="Ground truth (sub-metered)")
+    ax2.plot(day_idx_local, lgbm_full.reindex(day_idx),
+             color="#d62728", lw=1.6, ls="--", label="LightGBM v2")
+    ax2.plot(day_idx_local, rule_full.reindex(day_idx),
+             color="#ff7f0e", lw=1.3, ls="-.", label="Baseline 3 (Physical Rule)")
+    ax2.plot(day_idx_local, b2_full.reindex(day_idx),
+             color="#2ca02c", lw=1.2, ls=":", label="Baseline 2 (Time-of-Day Mean)")
+    ax2.axhline(on_threshold, color="purple", ls=":", lw=0.9,
+                label=f"ON threshold ({on_threshold:.0f} W)")
+    ax2.set_xlabel("Time of day (HH:MM Europe/London)", fontsize=10)
     ax2.set_ylabel("Washing Machine Power (W)", fontsize=10)
     ax2.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M", tz=day_idx_local.tz))
     ax2.legend(loc="upper right", fontsize=8.5)
-    ax2.set_ylim(-20, max(2500, y_true.loc[day_idx].max() + 200))
+    ax2.set_ylim(-20, max(2500, y_true_full.reindex(day_idx).max() + 200))
 
-    fig.text(
-        0.5, 0.01,
-        f"Figure s3_actual_vs_predicted.png: Actual vs predicted washing machine power for test House {test_house} on {rep_day_str} (Europe/London local time; selected as median-energy day with active wash cycle). Top: Whole-home aggregate load. Bottom: Ground truth vs LightGBM model and both baselines.",
-        ha="center", fontsize=8.5, style="italic"
+    fig.suptitle(
+        f"House {test_house} – {rep_day_str} (Europe/London): "
+        f"disaggregation on the median-energy day with at least one true wash cycle",
+        fontsize=11,
     )
-    plt.tight_layout(rect=[0, 0.03, 1, 0.98])
+    fig.text(
+        0.5, 0.005,
+        f"Top: whole-house aggregate load for House {test_house} on {rep_day_str}. "
+        f"Bottom: sub-metered ground truth vs LightGBM v2, Physical Rule baseline, and "
+        f"Time-of-Day Mean baseline. White gaps indicate unusable minutes (sensor outages / "
+        f"stale readings) where no prediction is made.",
+        ha="center", fontsize=8.5, style="italic",
+    )
+    plt.tight_layout(rect=[0, 0.04, 1, 0.97])
     fig_path1 = C.FIG_DIR / "s3_actual_vs_predicted.png"
-    plt.savefig(fig_path1)
+    plt.savefig(fig_path1, dpi=150)
     plt.close()
     print(f"Saved {fig_path1}")
 
-    # -------------------------------------------------------------
-    # Figure 2: s3_failure_confounder.png (Confounder load inspection)
-    # -------------------------------------------------------------
-    # Check if test house has confounders or inspect House 3/5 confounder day
-    # Look for a day where a dryer or high-power thermal load triggered false positive
-    errors = (y_pred_lgbm - y_true).abs()
-    # Find day with largest false-positive energy (pred high when true is off)
-    false_pos_energy = ((y_pred_lgbm > on_threshold) & (y_true <= C.ON_W)) * y_pred_lgbm
-    fp_days = false_pos_energy.groupby(y_true.index.tz_convert(C.TZ_LOCAL).date).sum()
-    fp_day = fp_days.idxmax()
+    # ── Figure 2: s3_failure_confounder.png ──────────────────────────────────
+    # Day with highest false-positive energy (LightGBM predicted ON, truth was OFF).
+    fp_energy = ((y_pred_lgbm > on_threshold) & (y_true <= C.ON_W)) * y_pred_lgbm
+    fp_days   = fp_energy.groupby(y_true.index.tz_convert(C.TZ_LOCAL).date).sum()
+    fp_day     = fp_days.idxmax()
     fp_day_str = str(fp_day)
 
-    mask_fp = (y_true.index.tz_convert(C.TZ_LOCAL).date == fp_day)
-    fp_idx = y_true.index[mask_fp]
+    mask_fp     = (full_idx.tz_convert(C.TZ_LOCAL).date == fp_day)
+    fp_idx      = full_idx[mask_fp]
     fp_idx_local = fp_idx.tz_convert(C.TZ_LOCAL)
 
     fig, ax = plt.subplots(figsize=(15, 5))
-    ax.plot(fp_idx_local, df_raw.loc[fp_idx, "aggregate"], color="gray", lw=1.0, alpha=0.7, label="Aggregate Load")
-    ax.plot(fp_idx_local, y_true.loc[fp_idx], color="#1f77b4", lw=1.8, label="True Washing Machine")
-    ax.plot(fp_idx_local, y_pred_lgbm.loc[fp_idx], color="#d62728", lw=1.5, linestyle="--", label="Predicted Washing Machine")
-    
-    # Check if another appliance in test house was active (e.g. kettle/cooker/dishwasher)
+    ax.plot(fp_idx_local, df_raw.loc[fp_idx, "aggregate"],
+            color="gray", lw=1.0, alpha=0.7, label="Aggregate load")
+    ax.plot(fp_idx_local, y_true_full.reindex(fp_idx),
+            color="#1f77b4", lw=1.8, label="True washing machine")
+    ax.plot(fp_idx_local, lgbm_full.reindex(fp_idx),
+            color="#d62728", lw=1.5, ls="--", label="LightGBM v2 prediction")
+
+    wm_ch = CHANNELS.get(test_house, "a2")
     for app_i in range(1, 10):
-        app_col = f"a{app_i}"
-        if app_col in df_raw.columns and app_col != C.CHANNELS.get(test_house, "a2"):
-            app_series = df_raw.loc[fp_idx, app_col]
-            if app_series.max() > 1500:
-                ax.plot(fp_idx_local, app_series, lw=1.2, linestyle="-.", label=f"Confounding Load ({app_col})")
+        col = f"a{app_i}"
+        if col in df_raw.columns and col != wm_ch:
+            s = df_raw.loc[fp_idx, col]
+            if s.max() > 1500:
+                ax.plot(fp_idx_local, s, lw=1.2, ls="-.",
+                        label=f"Confounding load ({col})")
                 break
 
-    ax.set_title(f"Model Failure Case 1 (Confounding Load on {fp_day_str}): High Aggregate Spike Induces False Positive", fontsize=11)
-    ax.set_xlabel("Time of Day (HH:MM Europe/London)", fontsize=10)
+    ax.set_xlabel("Time of day (HH:MM Europe/London)", fontsize=10)
     ax.set_ylabel("Power (W)", fontsize=10)
     ax.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M", tz=fp_idx_local.tz))
     ax.legend(loc="upper right", fontsize=8.5)
-
-    fig.text(
-        0.5, 0.01,
-        f"Figure s3_failure_confounder.png: Model failure mode on {fp_day_str} in test House {test_house}. A high-wattage non-target appliance pulse mimics the 2 kW water-heating phase of a washing machine, inducing false-positive disaggregation when unmonitored resistive loads activate.",
-        ha="center", fontsize=8.5, style="italic"
+    ax.set_title(
+        f"House {test_house} – {fp_day_str}: highest false-positive energy day "
+        f"(LightGBM predicted ON while washing machine was OFF)",
+        fontsize=11,
     )
-    plt.tight_layout(rect=[0, 0.04, 1, 0.96])
+    fig.text(
+        0.5, 0.005,
+        f"House {test_house} on {fp_day_str}. LightGBM v2 predicted washing-machine "
+        f"activity during periods when the sub-metered ground truth was zero. "
+        f"A confounding high-wattage appliance (shown in dash-dot) produced an aggregate "
+        f"spike that the model misidentified as a wash cycle.",
+        ha="center", fontsize=8.5, style="italic",
+    )
+    plt.tight_layout(rect=[0, 0.05, 1, 0.97])
     fig_path2 = C.FIG_DIR / "s3_failure_confounder.png"
-    plt.savefig(fig_path2)
+    plt.savefig(fig_path2, dpi=150)
     plt.close()
     print(f"Saved {fig_path2}")
 
-    # -------------------------------------------------------------
-    # Figure 3: s3_failure_transfer.png (Out-of-Distribution Transfer / Signature Mismatch)
-    # -------------------------------------------------------------
-    # Day with largest absolute error (under-prediction of extended cycle or signature mismatch)
+    # ── Figure 3: s3_failure_transfer.png ────────────────────────────────────
+    # Day with the highest mean absolute error in LightGBM predictions.
+    errors    = (y_pred_lgbm - y_true).abs()
     daily_mae = errors.groupby(y_true.index.tz_convert(C.TZ_LOCAL).date).mean()
-    worst_day = daily_mae.idxmax()
+    worst_day     = daily_mae.idxmax()
     worst_day_str = str(worst_day)
 
-    mask_worst = (y_true.index.tz_convert(C.TZ_LOCAL).date == worst_day)
-    w_idx = y_true.index[mask_worst]
+    mask_w      = (full_idx.tz_convert(C.TZ_LOCAL).date == worst_day)
+    w_idx       = full_idx[mask_w]
     w_idx_local = w_idx.tz_convert(C.TZ_LOCAL)
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 7), sharex=True)
-    ax1.plot(w_idx_local, df_raw.loc[w_idx, "aggregate"], color="black", lw=1.2, label="Aggregate Load")
-    ax1.set_title(f"Worst Transfer Day on {worst_day_str}: Aggregate Household Power", fontsize=11)
+    ax1.plot(w_idx_local, df_raw.loc[w_idx, "aggregate"],
+             color="black", lw=1.2, label="Aggregate load")
     ax1.set_ylabel("Power (W)", fontsize=10)
     ax1.legend(loc="upper right", fontsize=8.5)
+    ax1.set_title(
+        f"House {test_house} – {worst_day_str}: worst mean-absolute-error day "
+        f"(aggregate)",
+        fontsize=11,
+    )
 
-    ax2.plot(w_idx_local, y_true.loc[w_idx], color="#1f77b4", lw=1.8, label="True Washing Machine")
-    ax2.plot(w_idx_local, y_pred_lgbm.loc[w_idx], color="#d62728", lw=1.5, linestyle="--", label="LightGBM Prediction")
-    ax2.set_title("Actual vs Predicted Washing Machine Power", fontsize=11)
-    ax2.set_xlabel("Time of Day (HH:MM Europe/London)", fontsize=10)
-    ax2.set_ylabel("Power (W)", fontsize=10)
+    ax2.plot(w_idx_local, y_true_full.reindex(w_idx),
+             color="#1f77b4", lw=1.8, label="Ground truth (sub-metered)")
+    ax2.plot(w_idx_local, lgbm_full.reindex(w_idx),
+             color="#d62728", lw=1.5, ls="--", label="LightGBM v2 prediction")
+    ax2.plot(w_idx_local, rule_full.reindex(w_idx),
+             color="#ff7f0e", lw=1.3, ls="-.", label="Physical Rule baseline")
+    ax2.set_xlabel("Time of day (HH:MM Europe/London)", fontsize=10)
+    ax2.set_ylabel("Washing Machine Power (W)", fontsize=10)
     ax2.xaxis.set_major_formatter(mdates.DateFormatter("%H:%M", tz=w_idx_local.tz))
     ax2.legend(loc="upper right", fontsize=8.5)
+    ax2.set_title("Actual vs predicted washing machine power", fontsize=11)
 
     fig.text(
-        0.5, 0.01,
-        f"Figure s3_failure_transfer.png: Maximum-error transfer day on {worst_day_str} in test House {test_house}. Demonstrates signature mismatch when the unseen home executes an extended eco-wash cycle whose sustained low-power drum rotation differs from the rapid heating profiles seen during training.",
-        ha="center", fontsize=8.5, style="italic"
+        0.5, 0.005,
+        f"House {test_house} on {worst_day_str} — the day with the highest mean absolute "
+        f"error across the test period. Top: whole-house aggregate. "
+        f"Bottom: sub-metered ground truth vs LightGBM v2 and Physical Rule baseline. "
+        f"White gaps indicate unusable minutes.",
+        ha="center", fontsize=8.5, style="italic",
     )
-    plt.tight_layout(rect=[0, 0.04, 1, 0.96])
+    plt.tight_layout(rect=[0, 0.04, 1, 0.97])
     fig_path3 = C.FIG_DIR / "s3_failure_transfer.png"
-    plt.savefig(fig_path3)
+    plt.savefig(fig_path3, dpi=150)
     plt.close()
     print(f"Saved {fig_path3}")

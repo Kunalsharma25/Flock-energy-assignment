@@ -60,9 +60,12 @@ def prepare_house_data(house: int, channel: str) -> Tuple[pd.DataFrame, pd.Serie
     Returns
     -------
     X : pd.DataFrame
-        Feature matrix with NaNs dropped.
+        Feature matrix on the full regular 1-minute grid. Feature columns may contain NaN
+        where rolling windows touch unusable minutes; LightGBM handles these natively at
+        split time, preserving the temporal geometry of cycle boundaries.
     y : pd.Series
-        Target series (Washing machine active power in Watts, clipped at >= 0).
+        Target series aligned to the same grid; rows where the target minute is unusable
+        are NaN and excluded from training/evaluation.
     raw_df : pd.DataFrame
         Original 1-minute DataFrame with masks and unclipped target for evaluation.
     """
@@ -88,12 +91,16 @@ def prepare_house_data(house: int, channel: str) -> Tuple[pd.DataFrame, pd.Serie
     df_masked.loc[~usable, "aggregate"] = np.nan
     df_masked.loc[~usable, channel] = np.nan
 
-    # 3. Build features on masked series
+    # 3. Build features on the full regular 1-minute grid.
+    # Do NOT drop rows with NaN features here — LightGBM routes NaN samples
+    # to the optimal child branch at every split, so rolling-window gaps
+    # at bad-minute boundaries are handled natively without discarding valid
+    # cycle-start/end transitions that would be lost by the old notna() drop.
     X_full = build_features(df_masked)
     y_full = df_masked[channel].clip(lower=0.0)
 
-    # 4. Drop any row where features or target are NaN (drops windows touching unusable minutes)
-    valid_idx = X_full.notna().all(axis=1) & y_full.notna()
+    # Only exclude rows where the TARGET minute itself is unusable.
+    valid_idx = y_full.notna()
     X = X_full.loc[valid_idx]
     y = y_full.loc[valid_idx]
 
