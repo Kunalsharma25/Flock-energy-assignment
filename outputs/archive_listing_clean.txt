@@ -1,0 +1,30 @@
+Archive: CLEAN_REFIT_081116.7z
+Archive Size: 514,265,481 bytes (490.44 MB)
+Solid Archive: True
+Blocks: 2
+Compression Methods: LZMA
+Total Files: 20
+Total Uncompressed Size: 6,943,411,063 bytes (6.47 GB)
+--------------------------------------------------------------------------------
+Filename                            Uncompressed (bytes)   Size (MB)   
+--------------------------------------------------------------------------------
+CLEAN_House1.csv                    400,840,083            382.27      
+CLEAN_House10.csv                   398,756,360            380.28      
+CLEAN_House11.csv                   255,832,544            243.98      
+CLEAN_House12.csv                   335,009,288            319.49      
+CLEAN_House13.csv                   276,518,579            263.71      
+CLEAN_House15.csv                   353,152,325            336.79      
+CLEAN_House16.csv                   333,937,465            318.47      
+CLEAN_House17.csv                   317,925,929            303.20      
+CLEAN_House18.csv                   301,534,016            287.57      
+CLEAN_House19.csv                   320,691,540            305.84      
+CLEAN_House2.csv                    325,391,201            310.32      
+CLEAN_House20.csv                   299,757,142            285.87      
+CLEAN_House21.csv                   316,713,466            302.04      
+CLEAN_House3.csv                    407,273,065            388.41      
+CLEAN_House4.csv                    395,763,806            377.43      
+CLEAN_House5.csv                    435,272,416            415.11      
+CLEAN_House6.csv                    366,398,284            349.42      
+CLEAN_House7.csv                    388,975,788            370.96      
+CLEAN_House8.csv                    355,439,146            338.97      
+CLEAN_House9.csv                    358,228,620            341.63      

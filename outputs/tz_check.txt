@@ -1,0 +1,7 @@
+CLEAN_House1.csv Time vs Unix analysis:
+0.0    6960008
+Name: count, dtype: int64
+
+Interpretation: In CLEAN_House1.csv, Time is strictly UTC across all 6,960,008 rows (diff = 0.0 hours).
+In the raw data, Part 1 timestamps were collected under BST local clock (14:06:17 / Unix 1381327577),
+and the official REFIT cleaning pipeline applied the 1-hour DST correction shifting to true UTC (13:06:17 / Unix 1381323977).

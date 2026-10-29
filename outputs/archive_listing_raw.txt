@@ -1,0 +1,50 @@
+Archive: REFIT_RAW_081116.7z
+Archive Size: 698,108,465 bytes (665.77 MB)
+Solid Archive: True
+Blocks: 2
+Compression Methods: LZMA
+Total Files: 40
+Total Uncompressed Size: 8,312,269,294 bytes (7.74 GB)
+--------------------------------------------------------------------------------
+Filename                            Uncompressed (bytes)   Size (MB)   
+--------------------------------------------------------------------------------
+RAW_House10_Part1.csv               227,848,722            217.29      
+RAW_House10_Part2.csv               234,866,845            223.99      
+RAW_House11_Part1.csv               80,650,514             76.91       
+RAW_House11_Part2.csv               214,390,701            204.46      
+RAW_House12_Part1.csv               175,163,733            167.05      
+RAW_House12_Part2.csv               239,239,210            228.16      
+RAW_House1_Part1.csv                243,553,211            232.27      
+RAW_House1_Part2.csv                239,646,944            228.55      
+RAW_House2_Part1.csv                193,550,246            184.58      
+RAW_House2_Part2.csv                207,231,573            197.63      
+RAW_House3_Part1.csv                256,759,625            244.87      
+RAW_House3_Part2.csv                219,478,533            209.31      
+RAW_House4_Part1.csv                261,327,114            249.22      
+RAW_House4_Part2.csv                222,454,028            212.15      
+RAW_House5_Part1.csv                268,144,288            255.72      
+RAW_House5_Part2.csv                234,473,756            223.61      
+RAW_House6_Part1.csv                254,484,451            242.70      
+RAW_House6_Part2.csv                218,804,772            208.67      
+RAW_House7_Part1.csv                225,740,678            215.28      
+RAW_House7_Part2.csv                234,103,198            223.26      
+RAW_House8_Part1.csv                227,111,647            216.59      
+RAW_House8_Part2.csv                206,963,038            197.38      
+RAW_House9_Part1.csv                178,266,583            170.01      
+RAW_House9_Part2.csv                241,086,542            229.92      
+RAW_House_13_Part1.csv              146,764,958            139.97      
+RAW_House_13_Part2.csv              173,629,027            165.59      
+RAW_House_15_Part1.csv              186,143,244            177.52      
+RAW_House_15_Part2.csv              226,349,711            215.86      
+RAW_House_16_Part1.csv              124,294,372            118.54      
+RAW_House_16_Part2.csv              218,674,923            208.54      
+RAW_House_17_Part1.csv              162,981,460            155.43      
+RAW_House_17_Part2.csv              229,609,883            218.97      
+RAW_House_18_Part1.csv              169,194,619            161.36      
+RAW_House_18_Part2.csv              214,364,126            204.43      
+RAW_House_19_Part1.csv              157,372,383            150.08      
+RAW_House_19_Part2.csv              220,036,075            209.84      
+RAW_House_20_Part1.csv              150,982,570            143.99      
+RAW_House_20_Part2.csv              231,881,629            221.14      
+RAW_House_21_Part1.csv              167,269,127            159.52      
+RAW_House_21_Part2.csv              227,381,235            216.85      
