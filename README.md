@@ -1,8 +1,7 @@
 # REFIT Washing Machine NILM Disaggregation
 
 > **Flock Energy Data Science Take-Home Assignment**  
-> Dataset: [REFIT Electrical Load Measurements](https://doi.org/10.1038/sdata.2016.122) — Murray et al. 2017  
-> Planning document: [`IMPLEMENTATION_PLAN.md`](IMPLEMENTATION_PLAN.md)
+> Dataset: [REFIT Electrical Load Measurements](https://doi.org/10.1038/sdata.2016.122) — Murray et al. 2017
 
 ---
 
@@ -25,7 +24,6 @@ A reproducible, end-to-end pipeline that:
 ├── DATA.md                 # Dataset architecture, quality audit, and EDA findings
 ├── RESULTS.md              # Modelling methodology, metrics, and failure analysis
 ├── Recommendation.md       # Utility-facing summary and Section 4 answers
-├── IMPLEMENTATION_PLAN.md  # Planning document (agent reference, not final report)
 ├── requirements.txt
 ├── run_all.py              # Master pipeline entry point
 ├── scripts/

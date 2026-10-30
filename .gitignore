@@ -20,3 +20,8 @@ __pycache__/
 Thumbs.db
 .vscode/
 .idea/
+
+# Local submission artifacts
+*.pdf
+outputs/*.html
+scripts/*pdf*.py
