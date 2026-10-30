@@ -11,16 +11,16 @@ This document records the data engineering findings, cleaning pipelines, thresho
 - **Date Coverage:** `2013-10-09 14:06:17+00:00` to `2015-07-10 11:56:32+00:00`
 - **Nominal Sampling Interval:** 8 seconds (median observed: `7.0` s, 95th percentile: `13.0` s, 99th percentile: `15.0` s)
 - **Measurement Units:** Active power in Watts (W) across all channels.
-- **Monitored Channels:** Aggregate household power plus 9 individual sub-metered appliance channels:
+- **Monitored Channels:** Aggregate household power plus 9 individual sub-metered appliance channels (names taken verbatim from the official REFIT readme):
   - Appliance 1: Fridge
-  - Appliance 2: Chest Freezer
-  - Appliance 3: Upright Freezer
+  - Appliance 2: Freezer (1)
+  - Appliance 3: Freezer (2)
   - Appliance 4: Washer Dryer
   - Appliance 5: Washing Machine
   - Appliance 6: Dishwasher
-  - Appliance 7: Television
-  - Appliance 8: Microwave
-  - Appliance 9: Standby / unknown load
+  - Appliance 7: Computer
+  - Appliance 8: Television Site
+  - Appliance 9: Electric Heater
 
 ---
 
@@ -45,6 +45,9 @@ The raw House 1 dataset consists of two chronological segments: `RAW_House1_Part
 
 > [!NOTE]
 > **Spring Clock Transitions:** The two isolated 60-minute gaps recorded on `2014-03-30 01:00` and `2015-03-29 01:00` coincide exactly with the annual spring UK clock transitions, consistent with local wall-clock logging behavior during the forward shift to BST.
+
+> [!NOTE]
+> **Part 1 BST Offset and Overlap Caveat:** Raw Part 1 data logged timestamps in UTC+1 during British Summer Time (approximately April–October 2014). The official CLEAN file corrects this by shifting affected timestamps by −60 minutes to true UTC. In addition, Part 1 and Part 2 overlap between **2014-06-27 and 2014-10-01**, during which 276,310 duplicate timestamps carry differing sensor values (likely due to concurrent logging from different firmware revisions or base-station resets). These duplicates are resolved by averaging all readings at each shared timestamp; no records are discarded. Both caveats are handled deterministically in `src/cleaning.py`.
 
 #### Top 5 Largest Outages in House 1
 | Outage Start (UTC) | Outage End (UTC) | Duration |
@@ -116,7 +119,12 @@ While `Issues == 1` is masked out of model feature and target evaluation (`usabl
 - House 5 (a3): 27.39% of ON minutes have `Issues == 1` vs 6.55% of OFF minutes (4.18x ratio).
 - House 6 (a2): 11.33% of ON minutes have `Issues == 1` vs 1.89% of OFF minutes (5.99x ratio).
 
-This occurs because rapid power transients during the energizing of 2.0–2.4 kW water heating elements cause sub-metered channel readings to lead aggregate readings by several seconds, tripping the REFIT checksum algorithm (`Aggregate < sum(Appliances)`). Discarding candidate cycles for touching an `Issues == 1` minute eliminates 85% to 100% of authentic washing machine cycles across houses (e.g. 97.3% in H1, 96.2% in H2, 97.5% in H3, 91.7% in H5, 93.9% in H6). Conversely, masking true outages and stale forward-fills (`~present | stale`) preserves authentic cycles cleanly, discarding only 3.4% to 10.6% of cycles that truly intersect missing data.
+The exact cause of `Issues == 1` is not definitively established by our analysis; the REFIT documentation describes it as a checksum flag (indicating that the aggregate reading was lower than the sum of sub-metered appliances at the time of logging), but the underlying hardware or firmware trigger is not confirmed. What is empirically established is the strong correlation with active washing machine operation (4×–58× elevated rate during ON vs OFF minutes), which likely reflects rapid power transients during high-current load switching — but this is an inference, not a verified fact.
+
+Discarding candidate cycles for touching an `Issues == 1` minute eliminates 85% to 100% of authentic washing machine cycles across houses (e.g. 97.3% in H1, 96.2% in H2, 97.5% in H3, 91.7% in H5, 93.9% in H6). Conversely, masking true outages and stale forward-fills (`~present | stale`) preserves authentic cycles cleanly, discarding only 3.4% to 10.6% of cycles that truly intersect missing data.
+
+> [!IMPORTANT]
+> **`Issues == 1` exclusion and potential information leakage:** `features.py` excludes `Issues == 1` minutes from both model targets and aggregate-level input features. This affects 5–47% of ON minutes depending on the house (see per-house ratios above). Because `Issues == 1` is non-randomly elevated during active appliance operation, the missingness pattern is informative — it is correlated with the target label. The model is trained only on rows where the target is observed (i.e., where `Issues != 1`), which means the training distribution is not a random sample of all minutes. Specifically, a disproportionate share of high-power, mid-cycle minutes are absent from the training set. This constitutes a potential information asymmetry between training data and real-world deployment, where all minutes arrive regardless of whether a checksum flag fires.
 
 ---
 
@@ -147,9 +155,12 @@ Applying this dual-layer filter completely eliminates all phantom cycles in Hous
 
 ### 2.3 Target Cohort Selection Rationale
 
-The target cohort for exploratory data analysis and NILM disaggregation modeling is locked to **House 2, House 3, House 5, and House 6** (`outputs/selection_frozen.json`).
+The exploratory data analysis (Section 2) covers **House 2, House 3, House 5, and House 6** — this is the EDA cohort (`outputs/selection_frozen.json`). The **modelling training pool** is distinct and larger: it consists of all 17 eligible houses (all 20 REFIT houses minus House 5 held out as validation, minus House 6 held out as test, minus House 1 which was used only for Section 1 raw inspection), yielding 10,841,080 training rows across houses that each have ≥100 detected washing machine cycles. These two groups are different: the EDA cohort was chosen for interpretability and stratified diversity; the training pool is every eligible house not reserved for evaluation.
 
-All four homes comfortably exceed the data quality thresholds (>450 usable days, >100 detected cycles, median peak power > 1900 W matching standard UK domestic heating elements). Crucially, the cohort provides a balanced 2x2 stratified experimental design across primary NILM confounders:
+> [!NOTE]
+> **House 4 channel selection:** House 4 has two candidate washing machine channels, `a4` (Washer-Dryer, 59 detected cycles) and `a5` (Washing Machine, 207 detected cycles). Because `a4` falls below the 100-cycle minimum quality floor, the pipeline trains on channel `a5` only for House 4.
+
+All four EDA cohort homes comfortably exceed the data quality thresholds (>450 usable days, >100 detected cycles, median peak power >1900 W matching standard UK domestic heating elements). Crucially, the cohort provides a balanced 2×2 stratified experimental design across primary NILM confounders:
 1. **Tumble Dryer Confounder Stratification:**
    - **With Tumble Dryer:** House 3 (Appliance 4) and House 5 (Appliance 2) possess dedicated high-power tumble dryers, presenting major resistive/inductive heating load signatures that challenge disaggregation algorithms.
    - **Without Tumble Dryer:** House 2 and House 6 do not possess tumble dryers or washer-dryers.
@@ -162,7 +173,7 @@ All four homes comfortably exceed the data quality thresholds (>450 usable days,
    - **House 5:** High-frequency, rapid wash cycles (7.45 cycles/week, median duration 39.0 min, median energy 267.1 Wh).
    - **House 3:** Frequent, standard wash cycles (8.98 cycles/week, median duration 66.0 min, median energy 548.3 Wh).
    - **House 2:** Moderate-frequency, extended cycles (4.76 cycles/week, median duration 97.0 min, median energy 625.6 Wh).
-   - **House 6:** Low-frequency, heavy eco-wash cycles (1.73 cycles/week, median duration 129.0 min, median energy 672.5 Wh).
+   - **House 6:** Low-frequency, long-duration cycles (1.73 cycles/week, median duration 129.0 min, median energy 672.5 Wh) — the long cycle times and high energy per cycle suggest predominantly heavy-load or longer-programme washing behaviour, though the specific wash programme is not observable from power data alone.
 
 ---
 
@@ -193,7 +204,10 @@ All four homes comfortably exceed the data quality thresholds (>450 usable days,
 | **Tumble Dryer Present** | No | Yes (Appliance 4) | Yes (Appliance 2) | No |
 | **Washer Dryer Present** | No | No | No | No |
 
-*\*In House 5, Appliance 3 exhibits a continuous standby load of 1–3 W (electronic display/standby controller), resulting in 53.33% strictly zero readings, while remaining $\le 20$ W for 94.09% of usable time.*
+*\*In House 5, Appliance 3 exhibits a continuous standby load of 1–3 W (electronic display or similar), resulting in 53.33% strictly zero readings, while remaining $\le 20$ W for 94.09% of usable time.*
+
+> [!NOTE]
+> **EDA cycle counts vs. model evaluation cycle counts:** Cycle counts in this table (e.g. House 6: 118 cycles) are derived during the EDA phase (`outputs/section2_cycle_summary.csv`) using the full usable time-series. Cycle counts reported in `outputs/model_metrics.csv` (e.g. House 6 test: 126 cycles) are derived during model evaluation on the feature-engineered dataset, which applies an additional `Issues == 1` quality mask to both inputs and targets. Because this masking removes individual minutes from the middle of a long cycle, a single physical wash cycle can be split into two or more shorter segments that each independently satisfy the minimum cycle threshold — thereby increasing the counted number of cycles. These two counts measure different things and should not be directly compared.
 
 ---
 
