@@ -97,7 +97,7 @@ The cleaning pipeline (`src/cleaning.py`) processes raw House 1 data according t
 
 The 1-minute cleaned time series are filtered using four deterministic quality masks:
 1. `present`: True when whole-house aggregate active power is not `NaN`.
-2. `stale`: True during runs of $\ge 15$ consecutive minutes where all 10 channels simultaneously change by $< 0.01$ W.
+2. `stale`: True during runs of ≥ 15 consecutive minutes where all 10 channels simultaneously change by < 0.01 W.
 3. `bad_issue`: True when the official REFIT `Issues == 1` flag is present.
 4. `usable`: Defined as `present & ~stale & ~bad_issue` (used for feature engineering and power evaluation).
 
@@ -109,7 +109,7 @@ Analysis of consecutive unchanged intervals across all 20 houses (15,662,774 tot
 - **30–59 min:** 123 runs (0.19%) — extended sensor lockouts.
 - **60+ min:** 170 runs (0.27%) — multi-hour frozen forward-fills.
 
-Direct inspection of 20–29 minute flat runs (e.g. House 1 on `2014-08-01` from 17:34:00 to 18:00:00 UTC) reveals that all 10 monitored channels remain simultaneously invariant down to $0.00$ W standard deviation (`aggregate: 227.0 W`, `a1: 0.0 W`, `a2: 45.0 W`, `a3: 72.0 W`, `a4–a8: 0.0 W`, `a9: 1.0 W`; `std = 0.000000` across all 10 channels). Real domestic aggregate power exhibits continuous second-to-second micro-fluctuations; simultaneous zero variance across 10 independent wireless channels indicates receiver forward-fill during transmitter dropouts. Lowering `STALE_MIN` from 30 to 15 flags 307,230 minutes (213.4 days, 1.96% of data) compared to 274,476 minutes at 30 min (190.6 days, 1.75% of data), excising 32,754 minutes (22.7 days) of frozen sensor data while leaving candidate eligibility completely unchanged (19/20 houses eligible under both thresholds).
+Direct inspection of 20–29 minute flat runs (e.g. House 1 on `2014-08-01` from 17:34:00 to 18:00:00 UTC) reveals that all 10 monitored channels remain simultaneously invariant down to 0.00 W standard deviation (`aggregate: 227.0 W`, `a1: 0.0 W`, `a2: 45.0 W`, `a3: 72.0 W`, `a4–a8: 0.0 W`, `a9: 1.0 W`; `std = 0.000000` across all 10 channels). Real domestic aggregate power exhibits continuous second-to-second micro-fluctuations; simultaneous zero variance across 10 independent wireless channels indicates receiver forward-fill during transmitter dropouts. Lowering `STALE_MIN` from 30 to 15 flags 307,230 minutes (213.4 days, 1.96% of data) compared to 274,476 minutes at 30 min (190.6 days, 1.75% of data), excising 32,754 minutes (22.7 days) of frozen sensor data while leaving candidate eligibility completely unchanged (19/20 houses eligible under both thresholds).
 
 #### Masking Justification for Cycle Detection (`Issues == 1` Collision)
 While `Issues == 1` is masked out of model feature and target evaluation (`usable`), washing machine cycle boundaries are detected on `~present | stale`. Empirical audit of `Issues == 1` reveals that it occurs **4x to 58x more frequently** during active washing machine operation (`ON`) than during standby (`OFF`):
@@ -136,15 +136,17 @@ During preliminary cycle detection on House 5 (Appliance 3), an inspection of cy
 
 #### Why Multivariate Masking Failed
 The baseline Phase 4 `stale` mask was formulated across all 10 channels simultaneously:
+
 $$\text{unchanged} = \left(\bigwedge_{i=1}^{10} |\Delta P_i| < 0.01\text{ W}\right) \land \text{present}$$
-This rule successfully identifies whole-gateway receiver lockouts and communication forward-fills (e.g. House 1 on `2014-08-01` where all channels flatlined simultaneously). However, in House 5, the failure was an **isolated single-channel hardware freeze**: the individual Current Cost transmitter plug monitoring Appliance 3 locked up internally and broadcast the exact same floating-point reading for 778 consecutive minutes (`2129.000000 W`, `std = 0.000000`) and 2,863 consecutive minutes (`64.000000 W`, `std = 0.000000`), while the main gateway meter and other 8 appliance plugs continued normal, varying transmissions. Because the other channels fluctuated, multivariate `stale` was evaluated as `False`. And because both 64 W and 2129 W exceed the activation threshold $\text{ON\_W} = 20\text{ W}$, the cycle detection engine merged these frozen intervals into massive, unphysical "cycles".
+
+This rule successfully identifies whole-gateway receiver lockouts and communication forward-fills (e.g. House 1 on `2014-08-01` where all channels flatlined simultaneously). However, in House 5, the failure was an **isolated single-channel hardware freeze**: the individual sub-metering transmitter plug monitoring Appliance 3 locked up internally and broadcast the exact same floating-point reading for 778 consecutive minutes (`2129.000000 W`, `std = 0.000000`) and 2,863 consecutive minutes (`64.000000 W`, `std = 0.000000`), while the main gateway meter and other 8 appliance plugs continued normal, varying transmissions. Because the other channels fluctuated, multivariate `stale` was evaluated as `False`. And because both 64 W and 2129 W exceed the activation threshold `ON_W = 20 W`, the cycle detection engine merged these frozen intervals into massive, unphysical "cycles".
 
 #### The Dual-Layer Robustness Solution
 To guarantee pipeline robustness against real-world hardware failure modes without cherry-picking or manual data deletion, two automated domain-informed protections were implemented:
 1. **Appliance-Level Flatline Detection (`mask_appliance_flatline`):**
-   Any individual appliance channel that remains constant ($|\Delta P| < 0.01\text{ W}$) for $\ge 15$ consecutive minutes while drawing active power ($P > 20\text{ W}$) is tagged as an isolated transmitter freeze and masked to `NaN`. In real physical domestic washing cycles, power is never mathematically invariant for 15+ minutes: heating elements cycle via thermostats, and electric motors exhibit continuous current fluctuation during drum agitation.
+   Any individual appliance channel that remains constant (|ΔP| < 0.01 W) for ≥ 15 consecutive minutes while drawing active power (P > 20 W) is tagged as an isolated transmitter freeze and masked to `NaN`. In real physical domestic washing cycles, power is never mathematically invariant for 15+ minutes: heating elements cycle via thermostats, and electric motors exhibit continuous current fluctuation during drum agitation.
 2. **Physical Domain Bounds (`MAX_CYCLE_MIN = 300`, `MAX_CYCLE_WH = 3500`):**
-   Domestic wash/rinse/spin cycles operate within well-established physical ceilings. Any detected run exceeding 300 minutes (5 hours) or consuming $> 3,500\text{ Wh}$ ($3.5\text{ kWh}$) is discarded as an appliance fault or unmonitored consecutive-run merge.
+   Domestic wash/rinse/spin cycles operate within well-established physical ceilings. Any detected run exceeding 300 minutes (5 hours) or consuming > 3,500 Wh (3.5 kWh) is discarded as an appliance fault or unmonitored consecutive-run merge.
 
 Applying this dual-layer filter completely eliminates all phantom cycles in House 5:
 - **Maximum duration** drops from 2,867 min (47.8 h) to **286 min** (4.8 h, a realistic multi-rinse heavy cotton wash).
@@ -188,14 +190,14 @@ All four EDA cohort homes comfortably exceed the data quality thresholds (>450 u
 | **Stale Minutes (% Stale)** | 0.73% | 2.39% | 0.40% | 0.25% |
 | **Checksum Issues (% Issues)** | 1.51% | 6.85% | 7.59% | 1.75% |
 | **Standby Power (% Zero)** | 95.05% | 94.12% | 53.33%* | 97.60% |
-| **Inactive Appliance (% Off $\le$ 20W)** | 95.99% | 95.39% | 94.09% | 98.29% |
+| **Inactive Appliance (% Off ≤ 20W)** | 95.99% | 95.39% | 94.09% | 98.29% |
 | **Total Detected Cycles** | **307** | **626** | **572** | **118** |
 | **Cycles per Week** | **4.76** | **8.98** | **7.45** | **1.73** |
 | **Duration: Median (IQR)** | 97.0 min (15.5 min) | 66.0 min (8.0 min) | 39.0 min (28.0 min) | 129.0 min (63.8 min) |
-| **Duration: Mean $\pm$ Std** | 101.3 $\pm$ 29.8 min | 67.6 $\pm$ 18.0 min | 51.1 $\pm$ 39.0 min | 104.5 $\pm$ 52.4 min |
+| **Duration: Mean ± Std** | 101.3 ± 29.8 min | 67.6 ± 18.0 min | 51.1 ± 39.0 min | 104.5 ± 52.4 min |
 | **Duration: Range [Min, Max]** | [16, 257] min | [10, 216] min | [10, 286] min | [14, 271] min |
 | **Active Energy: Median (IQR)** | 625.6 Wh (196.3 Wh) | 548.3 Wh (183.2 Wh) | 267.1 Wh (207.1 Wh) | 672.5 Wh (413.9 Wh) |
-| **Active Energy: Mean $\pm$ Std** | 623.4 $\pm$ 213.1 Wh | 564.4 $\pm$ 187.9 Wh | 316.4 $\pm$ 233.0 Wh | 645.8 $\pm$ 350.4 Wh |
+| **Active Energy: Mean ± Std** | 623.4 ± 213.1 Wh | 564.4 ± 187.9 Wh | 316.4 ± 233.0 Wh | 645.8 ± 350.4 Wh |
 | **Active Energy: Range [Min, Max]** | [23.5, 1567.8] Wh | [22.7, 1579.0] Wh | [20.2, 1820.4] Wh | [25.9, 1568.0] Wh |
 | **Peak Power: Median (Mean)** | 2091.4 W (2081.2 W) | 1924.6 W (1892.5 W) | 2065.8 W (1813.5 W) | 2048.5 W (1831.9 W) |
 | **Mean Active Cycle Power** | 382.4 W | 493.1 W | 390.8 W | 364.2 W |
@@ -204,7 +206,7 @@ All four EDA cohort homes comfortably exceed the data quality thresholds (>450 u
 | **Tumble Dryer Present** | No | Yes (Appliance 4) | Yes (Appliance 2) | No |
 | **Washer Dryer Present** | No | No | No | No |
 
-*\*In House 5, Appliance 3 exhibits a continuous standby load of 1–3 W (electronic display or similar), resulting in 53.33% strictly zero readings, while remaining $\le 20$ W for 94.09% of usable time.*
+*\*In House 5, Appliance 3 exhibits a continuous standby load of 1–3 W (electronic display or similar), resulting in 53.33% strictly zero readings, while remaining ≤ 20 W for 94.09% of usable time.*
 
 > [!NOTE]
 > **EDA cycle counts vs. model evaluation cycle counts:** Cycle counts in this table (e.g. House 6: 118 cycles) are derived during the EDA phase (`outputs/section2_cycle_summary.csv`) using the full usable time-series. Cycle counts reported in `outputs/model_metrics.csv` (e.g. House 6 test: 126 cycles) are derived during model evaluation on the feature-engineered dataset, which applies an additional `Issues == 1` quality mask to both inputs and targets. Because this masking removes individual minutes from the middle of a long cycle, a single physical wash cycle can be split into two or more shorter segments that each independently satisfy the minimum cycle threshold — thereby increasing the counted number of cycles. These two counts measure different things and should not be directly compared.
