@@ -80,13 +80,16 @@ The cleaning pipeline (`src/cleaning.py`) processes raw House 1 data according t
 
 ### 1.4 Diagnostic Visualizations
 
-1. **Before vs After Cleaning (`figures/s1_cleaning_before_after.png`):**
+1. **Before vs After Cleaning:**
+   ![Before vs After Cleaning](figures/s1_cleaning_before_after.png)
    Demonstrates raw 8 s data versus cleaned 1-minute power across a 48-hour period (2013-10-26 to 2013-10-27 UTC) containing an active washing machine cycle (~2.4 kW heating pulses), cyclic fridge compressor activity, and peak aggregate loads. Sampling jitter is eliminated while preserving peak power and cycle energy.
 
-2. **Gap Zoom & Outage Masking (`figures/s1_gap_zoom.png`):**
+2. **Gap Zoom & Outage Masking:**
+   ![Gap Zoom and Outage Masking](figures/s1_gap_zoom.png)
    Illustrates raw sensor dropouts on 2013-10-14, demonstrating linear interpolation of short gaps (<= 5 min) and unpopulated NaN masking of extended outages (> 5 min).
 
-3. **Sampling Interval Distribution (`figures/s1_sampling_intervals.png`):**
+3. **Sampling Interval Distribution:**
+   ![Sampling Interval Distribution](figures/s1_sampling_intervals.png)
    Validates nominal polling dynamics, showing a narrow distribution centered at 7-8 seconds with a heavy tail of extended gaps.
 
 ---
@@ -215,13 +218,16 @@ All four EDA cohort homes comfortably exceed the data quality thresholds (>450 u
 
 ### 2.5 Section 2 Visualizations
 
-1. **Typical Cycle Profiles & Representative 24-Hour Whole-Home Trace (`figures/sec2_typical_cycle_profile.png`):**
+1. **Typical Cycle Profiles & Representative 24-Hour Whole-Home Trace:**
+   ![Typical Cycle Profiles and 24-Hour Whole-Home Trace](figures/sec2_typical_cycle_profile.png)
    - **Top Subplots:** Exemplar individual wash cycles across Houses 2, 3, 5, and 6 selected nearest to their respective median duration and active energy. Highlights the characteristic multi-phase signature: initial water heating spike (1900–2100 W for 10–20 min), drum agitation (~100–300 W with pause intervals), intermediate rinses, and final high-speed spin extraction (~500–800 W).
    - **Bottom Subplot:** Representative 24-hour trace for House 3 on `2015-05-07` in UK local time (BST), selected deterministically as the median-energy full-coverage day with 2 active cycles (daily washing machine active energy: 1032.8 Wh; household aggregate: 15.09 kWh). Clearly demonstrates the distinct high-wattage pulses of washing cycles amidst ambient background baseload.
 
-2. **Cycle Duration and Energy Distributions (`figures/sec2_cycle_duration_distribution.png`):**
+2. **Cycle Duration and Energy Distributions:**
+   ![Cycle Duration and Energy Distributions](figures/sec2_cycle_duration_distribution.png)
    Side-by-side boxplots with overlaid jittered points depicting cycle duration (minutes) and active energy (Wh) across the 4 cohort homes. The plotting axes are scaled naturally to encompass 100% of all detected cycles across all 4 cohort houses (House 2: N=307, House 3: N=626, House 5: N=572, House 6: N=118), with zero data points clipped or omitted. Illustrates the contrast between rapid, low-energy laundering (House 5: median 39 min, 267 Wh) and prolonged eco-cycles (House 6: median 129 min, 673 Wh; House 2: median 97 min, 626 Wh).
 
-3. **Diurnal and Weekly Usage Patterns (`figures/sec2_usage_patterns.png`):**
+3. **Diurnal and Weekly Usage Patterns:**
+   ![Diurnal and Weekly Usage Patterns](figures/sec2_usage_patterns.png)
    Evaluated strictly in UK local time (`Europe/London`). Shows a marked diurnal preference with a primary morning peak between 08:00 and 12:00 local time, a secondary late afternoon/evening peak (16:00–20:00), and near-zero overnight laundering (<2% between 00:00 and 06:00). Day-of-week analysis and the joint hour-by-weekday heatmap reveal household-specific laundry habits (e.g. weekend laundering peaks in working households).
 

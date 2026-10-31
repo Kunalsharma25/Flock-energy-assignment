@@ -62,13 +62,19 @@ All threshold values are sourced from `outputs/selection_frozen.json`.
 
 ### 2.4 Section 2 Figures
 
-#### `figures/sec2_typical_cycle_profile.png`
+#### Typical Cycle Profiles & Representative 24-Hour Whole-Home Trace
+![Typical Cycle Profiles and 24-Hour Whole-Home Trace](figures/sec2_typical_cycle_profile.png)
+
 The top four subplots show one exemplar wash cycle per cohort home, each selected as the cycle closest to its home's median duration and energy. All four display the characteristic multi-phase signature common to domestic front-loading machines: an initial water-heating phase pulling 1,900–2,100 W for 10–20 minutes, a drum agitation period at 100–300 W, and a final spin extraction. The bottom subplot shows a full 24-hour aggregate trace for House 3 on 2015-05-07 in UK local time (BST), containing two active wash cycles with clearly visible heating pulses against the household baseload.
 
-#### `figures/sec2_cycle_duration_distribution.png`
+#### Cycle Duration and Energy Distributions
+![Cycle Duration and Energy Distributions](figures/sec2_cycle_duration_distribution.png)
+
 Side-by-side boxplots with overlaid jittered points show cycle duration (minutes, left) and active energy (Wh, right) for all detected cycles across the four cohort homes (H2: N=307, H3: N=626, H5: N=572, H6: N=118). Axes are scaled to encompass 100% of detected cycles with zero data points clipped or omitted. House 6 stands out with a noticeably higher median duration (129 min) and broader energy distribution (IQR 413.9 Wh) compared to House 5's shorter, lower-energy cycles (median 39 min, IQR 207.1 Wh).
 
-#### `figures/sec2_usage_patterns.png`
+#### Diurnal and Weekly Laundering Usage Patterns
+![Diurnal and Weekly Usage Patterns](figures/sec2_usage_patterns.png)
+
 Evaluated strictly in `Europe/London` UK local time. The hour-of-day histogram and the weekday-by-hour heatmap show a primary morning laundry peak between 08:00 and 12:00 and a secondary evening peak between 16:00 and 20:00. Overnight usage (00:00–06:00) represents less than 2% of cycle starts across the cohort. Day-of-week bars show household-specific habits; weekend laundering is elevated in working households.
 
 ---
@@ -160,13 +166,19 @@ The threshold varies by fold because it is optimised on a different validation h
 
 ### 3.7 Diagnostic Figures
 
-#### `figures/s3_actual_vs_predicted.png`
+#### Actual vs. Predicted Disaggregation Trace (House 6)
+![Actual vs Predicted Disaggregation Trace](figures/s3_actual_vs_predicted.png)
+
 Top panel: whole-house aggregate power for House 6 on the selected day in Europe/London local time. Bottom panel: sub-metered ground truth (blue), LightGBM v2 predictions (red dashed), Physical Rule predictions (orange dash-dot), and Time-of-Day baseline (green dotted). The day was selected as the median-energy day with at least one verified true wash cycle. White gaps indicate unusable minutes where no prediction is made. The LightGBM prediction roughly follows the active cycle envelope but remains substantially below the true 2,000 W heating spike, reflecting the regression-to-the-mean effect in the MSE-trained regressor.
 
-#### `figures/s3_failure_confounder.png`
+#### Failure Mode: Thermal Confounder False Positives
+![Thermal Confounder False Positives](figures/s3_failure_confounder.png)
+
 Shows House 6 on the day with the highest false-positive energy in LightGBM v2 predictions (predicted ON while true washing-machine power was zero). The aggregate rises sharply due to a high-wattage kitchen appliance whose power signature overlaps the heating-element profile of a washing machine. The model cannot separate these appliances from the whole-house signal alone. This is the primary source of low precision (16%) on House 6.
 
-#### `figures/s3_failure_transfer.png`
+#### Failure Mode: Low-Power Eco-Cycle Transfer Failure
+![Eco-Wash Transfer Failure](figures/s3_failure_transfer.png)
+
 Shows House 6 on the day with the highest mean absolute error. Top panel: whole-house aggregate in a range consistent with background household activity. Bottom panel: the sub-metered ground truth reveals an active wash cycle drawing ~100–200 W (eco-wash, no resistance heating), while LightGBM v2 predicts near-zero. The model was trained predominantly on homes with prominent 2,000 W heating signatures and cannot reliably detect cycles whose wattage is indistinguishable from a television or computer left running.
 
 ---
