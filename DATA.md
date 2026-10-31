@@ -225,7 +225,7 @@ All four EDA cohort homes comfortably exceed the data quality thresholds (>450 u
 
 2. **Cycle Duration and Energy Distributions:**
    ![Cycle Duration and Energy Distributions](figures/sec2_cycle_duration_distribution.png)
-   Side-by-side boxplots with overlaid jittered points depicting cycle duration (minutes) and active energy (Wh) across the 4 cohort homes. The plotting axes are scaled naturally to encompass 100% of all detected cycles across all 4 cohort houses (House 2: N=307, House 3: N=626, House 5: N=572, House 6: N=118), with zero data points clipped or omitted. Illustrates the contrast between rapid, low-energy laundering (House 5: median 39 min, 267 Wh) and prolonged eco-cycles (House 6: median 129 min, 673 Wh; House 2: median 97 min, 626 Wh).
+   Side-by-side boxplots with overlaid jittered points depicting cycle duration (minutes) and active energy (Wh) across the 4 cohort homes. The plotting axes are scaled naturally to encompass 100% of all detected cycles across all 4 cohort houses (House 2: N=307, House 3: N=626, House 5: N=572, House 6: N=118), with zero data points clipped or omitted. Illustrates the contrast between rapid, low-energy laundering (House 5: median 39 min, 267 Wh) and long-duration cycles (House 6: median 129 min, 673 Wh; House 2: median 97 min, 626 Wh).
 
 3. **Diurnal and Weekly Usage Patterns:**
    ![Diurnal and Weekly Usage Patterns](figures/sec2_usage_patterns.png)

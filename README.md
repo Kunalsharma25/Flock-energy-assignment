@@ -186,9 +186,9 @@ In priority order, given more time:
 
 1. **Run-length post-processing gate:** Discard any contiguous predicted ON block shorter than 10 minutes or consuming < 25 Wh. A washing machine physically cannot run for 2 minutes. This would eliminate most kettle/microwave false positives without retraining.
 
-2. **Two-stage hurdle architecture:** Decouple detection (binary classifier with balanced classes) from estimation (a regressor trained only on confirmed ON minutes). This removes regression-to-the-mean shrinkage that currently keeps predicted peaks below 400 W on low-power eco-cycles.
+2. **Two-stage hurdle architecture:** Decouple detection (binary classifier with balanced classes) from estimation (a regressor trained only on confirmed ON minutes). This removes regression-to-the-mean shrinkage that pulls predicted peaks below the true ~2,000 W heating power.
 
-3. **Wider context window (±60–120 min):** House 6 eco-cycles last a median 129 minutes. The current ±30-minute lag/lead window cannot see the heating pulse that occurred 50 minutes earlier. Adding macro-features (e.g. rolling mean over 120 min, minutes since last 1,500 W aggregate jump) would give the model cycle-length awareness.
+3. **Wider context window (±60–120 min):** House 6 cycles last a median 129 minutes. The current ±30-minute lag/lead window cannot see the heating pulse that occurred 50 minutes earlier. Adding macro-features (e.g. rolling mean over 120 min, minutes since last 1,500 W aggregate jump) would give the model cycle-length awareness.
 
 4. **Asymmetric or Huber loss:** MSE penalises under-prediction of 2,000 W peaks quadratically: (2000 − 0)² = 4,000,000. This compresses predicted peaks. A quantile or Huber loss would allow predictions to reach true heating-element magnitudes.
 

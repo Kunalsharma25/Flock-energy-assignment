@@ -19,7 +19,7 @@ A LightGBM model trained on whole-house aggregate power from 17 homes can estima
 ### Unsuitable uses
 - **Billing-grade per-cycle metering:** Cycle energy MAPE is 60–74% on cross-validation homes. At this precision, billing customers for individual cycles would be legally and commercially indefensible.
 - **Real-time automation:** The model has a cycle precision of 30% on the primary test home (1 in 3 predicted cycles is a true cycle). Triggering smart-plug actions or demand-response signals on this output would cause frequent false activations.
-- **Homes unlike the training set:** The model has not been validated on any Indian household data. Indian domestic washing machines are predominantly top-loading semi-automatics with cold-water wash cycles and no resistance heating element. The primary signal the model uses — a sustained 2,000 W heating spike — will be absent, and cross-household transfer performance is unknown.
+- **Homes unlike the training set:** The model has not been validated on any Indian household data. Indian domestic washing machines are predominantly top-loading semi-automatics with cold-water wash cycles and no internal water heater. The primary signal the model uses — a sustained 2,000 W heating spike — will be absent, and cross-household transfer performance is unknown.
 
 ---
 
@@ -54,7 +54,7 @@ A washing machine water-heating element draws 2,000–2,500 W of resistive power
 Between 1.75% and 7.59% of minutes in the cohort homes carry the REFIT `Issues == 1` flag (appliance sum exceeds aggregate). These minutes are excluded from model training and evaluation targets. Additionally, stale forward-fill periods (1.96% of total data) are masked. On homes with high flag rates, the effective evaluation window is smaller than the nominal date coverage.
 
 #### Household Differences
-Each home has a different washing machine brand, cycle programme selection, and occupancy pattern. A model trained on homes with predominantly 60°C hot-wash cycles (detectable 2 kW heating phase) transfers poorly to homes using cold or eco-wash programmes (100–150 W motor only, no heating spike). House 6 in this submission is an example: its median cycle duration is 129 minutes but its typical active power is well below 200 W, making it nearly invisible to a model trained on heating-dominated signatures.
+Each home has a different washing machine, programme selection and occupancy pattern. House 6 shows the effect of cycle structure: its cycles are long (median 129 minutes) and infrequent (1.73 per week), and the model captured only part of its heating-phase power (see RESULTS.md). Transfer to homes with different machines or programmes is untested.
 
 #### UK to India
 UK domestic washing machines are predominantly front-loading, automatic, 240 V machines with a 2,000 W internal resistance heater. Indian domestic washing machines are predominantly top-loading, semi-automatic, or bucket-fill machines using cold water only, operating on 220 V with frequent voltage fluctuations. The electrical signature this model has learned — a sustained high-power heating phase followed by motor agitation — may not exist in the Indian market. Before deploying in India, a new labelled dataset of Indian domestic load profiles would be required, and the model architecture would need to be retrained and re-evaluated.

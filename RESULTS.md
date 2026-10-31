@@ -176,10 +176,10 @@ Top panel: whole-house aggregate power for House 6 on the selected day in Europe
 
 Shows House 6 on the day with the highest false-positive energy in LightGBM v2 predictions (predicted ON while true washing-machine power was zero). The aggregate rises sharply due to a high-wattage kitchen appliance whose power signature overlaps the heating-element profile of a washing machine. The model cannot separate these appliances from the whole-house signal alone. This is the primary source of low precision (16%) on House 6.
 
-#### Failure Mode: Low-Power Eco-Cycle Transfer Failure
-![Eco-Wash Transfer Failure](figures/s3_failure_transfer.png)
+#### Failure Mode: Underestimated Heating Peaks and Missed Low-Power Phases
+![Underestimated Heating Peaks and Missed Low-Power Phases](figures/s3_failure_transfer.png)
 
-Shows House 6 on the day with the highest mean absolute error. Top panel: whole-house aggregate in a range consistent with background household activity. Bottom panel: the sub-metered ground truth reveals an active wash cycle drawing ~100–200 W (eco-wash, no resistance heating), while LightGBM v2 predicts near-zero. The model was trained predominantly on homes with prominent 2,000 W heating signatures and cannot reliably detect cycles whose wattage is indistinguishable from a television or computer left running.
+House 6 on 2013-12-28 is the day with the highest daily MAE (75.18 W). The sub-metered machine used 2,106 Wh that day, with heating-phase power up to 2,093 W. LightGBM v2 flags every heating minute as active (all 44 minutes above 1,500 W) but predicts only about 670 W at the median (10th-90th percentile 418-910 W; maximum 1,088 W), so it accounts for 460 Wh of the 1,458 Wh measured in those minutes. In the lower-power phases (321 minutes at 20-400 W, 569 Wh), 81% of minutes are predicted as exactly 0 W. The day total is 661 Wh predicted against 2,106 Wh measured. The model also produces a false burst between about 11:40 and 12:05 (up to about 730 W while the machine draws at most 180 W), when the aggregate reaches about 3.5 kW from another load. These patterns are consistent with squared-error regression pulling large peaks toward the mean and with the 20 W gate removing small predictions, but we did not test other loss functions or gating, so this is an interpretation, not a demonstrated cause. A single day is illustrative, not a statistical result. Numbers: outputs/failure_day_stats.json (scripts/failure_day_stats.py).
 
 ---
 
@@ -188,11 +188,11 @@ Shows House 6 on the day with the highest mean absolute error. Top panel: whole-
 #### Thermal Confounders
 Electric kettles, ovens, and space heaters draw 1,500–3,000 W — the same range as the washing-machine heating element. At 1-minute resolution these are electrically identical in the aggregate signal. Short high-power events (< 5 minutes) can be distinguished by lag/lead features, but overlapping or consecutive uses from different thermal appliances produce sustained aggregate spikes that the model cannot attribute to any single appliance.
 
-#### Eco-Cycle Signature Mismatch
-House 6's median cycle is 129 minutes at median energy 672.5 Wh. Because the energy is distributed over a long low-power drum-only agitation (~100–200 W), without a detectable heating spike, the model sees power indistinguishable from background standby loads. This is a fundamental limitation of aggregate-only 1-minute NILM for modern energy-efficient washing programmes.
+#### Long Cycles and Underestimated Heating Peaks
+House 6 has long, infrequent cycles (median 129 min, 1.73 cycles/week) and a median cycle peak of 2,048 W, so heating phases are present. The model underestimates their power (see the failure-mode analysis above).
 
 #### Cross-Household Variability
-Cycle recall ranges from 3.2% (House 6) to 79.6% (House 3) across LOHO-CV folds. This variance is explained by the degree to which each test home's cycle signature matches the heating-element profiles dominant in the training pool. The model generalises well to homes with conventional hot-wash cycles (H3, H5) and poorly to homes relying on eco-wash or cold programmes (H6).
+Cycle recall ranges from 3.2% (House 6) to 79.6% (House 3) across LOHO-CV folds. Low cycle recall on House 6 is likely partly an effect of the >= 50% overlap rule, which penalises a model that detects only the heating phase of long cycles (House 6 median duration 129 min; heating phases last roughly 15-35 min in the plotted examples). This explanation is untested.
 
 #### Missing Data and Masking
 Between 1.75% and 7.59% of minutes carry `Issues == 1` and are excluded from targets. On houses with high Issues rates (H3: 6.85%, H5: 7.59%), the effective training and evaluation window is reduced by a meaningful fraction. The higher Issues rate during ON minutes (4× to 21× the OFF-minute rate) also means masked data is not missing at random — its absence could theoretically allow the model to infer machine state from the missing-value pattern itself. This potential information leak is not exploited in the current implementation (the model is only trained on rows where the target is known), but it warrants disclosure.
@@ -207,7 +207,7 @@ The following architectural changes were identified during this work and are lef
 
 2. **Two-stage hurdle architecture.** A binary classifier (with balanced ON/OFF class weights) followed by a regression model trained exclusively on confirmed ON minutes. Removes regression-to-the-mean shrinkage that currently limits predicted peak power to well below the true 2,000 W heating phase.
 
-3. **Wider context window (± 60–120 minutes).** House 6 eco-cycles last a median 129 minutes. The current ±30-minute window cannot see the heating phase that may have occurred 50 minutes earlier. Adding 60- and 120-minute rolling features and a "minutes since last 1,500 W spike" feature would give the model macro-cycle awareness. Motivated by the transfer failure in `s3_failure_transfer.png`.
+3. **Wider context window (± 60–120 minutes).** House 6 cycles last a median 129 minutes. The current ±30-minute window cannot see the heating phase that may have occurred 50 minutes earlier. Adding 60- and 120-minute rolling features and a "minutes since last 1,500 W spike" feature would give the model macro-cycle awareness. Motivated by the transfer failure in `s3_failure_transfer.png`.
 
 4. **Asymmetric or Huber loss function.** MSE penalises a 2,000 W miss quadratically (penalty = 4,000,000), encouraging conservative near-zero predictions. An asymmetric quantile loss or Huber loss would allow the model to predict true heating-element magnitudes without disproportionate gradient penalty.
 

@@ -1,0 +1,31 @@
+{
+  "highest_mae_day": "2013-12-28",
+  "highest_daily_mae": 75.18,
+  "day_2013_12_28": {
+    "true_wh": 2106.4,
+    "pred_wh": 661.3,
+    "true_peak_w": 2093.3
+  },
+  "heating_minutes_gt_1500w": {
+    "count": 44,
+    "pred_median_w": 669.5,
+    "pred_p10_w": 418.2,
+    "pred_p90_w": 910.1,
+    "pred_max_w": 1088.1,
+    "true_wh": 1457.7,
+    "pred_wh": 460.1,
+    "share_pred_ge_20w": 1.0
+  },
+  "low_power_minutes_20_to_400w": {
+    "count": 321,
+    "true_wh": 569.4,
+    "share_pred_zero": 0.81
+  },
+  "window_1140_to_1205": {
+    "minute_count": 23,
+    "max_true_wm_w": 178.8,
+    "max_pred_lgbm_w": 733.9,
+    "minutes_pred_ge_300_true_le_150": 15,
+    "max_aggregate_w": 3515.3
+  }
+}

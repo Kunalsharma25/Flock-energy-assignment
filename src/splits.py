@@ -49,7 +49,7 @@ def get_model_splits() -> Dict[str, Any]:
             "Training uses all 17 eligible houses (all eligible minus val H5 and test H6) to "
             "maximise washing-machine cycle diversity across brands, occupancies, and usage habits. "
             "Validation (H5) provides cross-household early stopping and threshold tuning. "
-            "Test (H6) evaluates performance on an entirely unseen home with prolonged eco-cycles."
+            "Test (H6) evaluates performance on an entirely unseen home with long-duration cycles."
         ),
     }
 
