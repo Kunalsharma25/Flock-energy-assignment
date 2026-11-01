@@ -1,7 +1,7 @@
 # REFIT Washing Machine NILM Disaggregation
 
 > **Flock Energy Data Science Take-Home Assignment**  
-> Dataset: [REFIT Electrical Load Measurements](https://doi.org/10.1038/sdata.2016.122) — Murray et al. 2017
+> Dataset: [REFIT Electrical Load Measurements](https://doi.org/10.1038/sdata.2016.122) 
 
 ---
 
